@@ -1,8 +1,27 @@
-import { Button, Box, Text } from "@chakra-ui/react";
-import { useEthers, useEtherBalance } from "@usedapp/core";
+import {
+  Button,
+  Box,
+  Text,
+  useToast,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  CloseButton,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
+  Link,
+} from "@chakra-ui/react";
+import { useEthers, useEtherBalance, Moonbeam } from "@usedapp/core";
 import { formatEther } from "@ethersproject/units";
 import Identicon from "./Identicon";
-
+import { useState, useEffect } from "react";
+import userEvent from "@testing-library/user-event";
 type Props = {
   handleOpenModal: any;
 };
@@ -10,9 +29,14 @@ type Props = {
 export default function ConnectButton({ handleOpenModal }: Props) {
   const { activateBrowserWallet, account } = useEthers();
   const etherBalance = useEtherBalance(account);
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
-  function handleConnectWallet() {
-    activateBrowserWallet();
+  async function handleConnectWallet() {
+    try {
+      await activateBrowserWallet();
+    } catch (error) {
+      onOpen()
+    }
   }
 
   return account ? (
@@ -54,24 +78,52 @@ export default function ConnectButton({ handleOpenModal }: Props) {
       </Button>
     </Box>
   ) : (
-    <Button
-      onClick={handleConnectWallet}
-      bg="blue.800"
-      color="blue.300"
-      fontSize="lg"
-      fontWeight="medium"
-      borderRadius="xl"
-      border="1px solid transparent"
-      _hover={{
-        borderColor: "blue.700",
-        color: "blue.400",
-      }}
-      _active={{
-        backgroundColor: "blue.800",
-        borderColor: "blue.700",
-      }}
-    >
-      Connect wallet
-    </Button>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
+        <ModalOverlay />
+        <ModalContent
+          background="gray.900"
+          border="1px"
+          borderStyle="solid"
+          borderColor="gray.700"
+          borderRadius="3xl"
+        >
+          <ModalHeader color="white" px={4} fontSize="lg" fontWeight="medium">
+            Error!
+          </ModalHeader>
+          <ModalCloseButton
+            color="white"
+            fontSize="sm"
+            _hover={{
+              color: "whiteAlpha.700",
+            }}
+          />
+          <ModalBody pt={0} px={4}>
+            <Text color="white">In order to connect wallet, you should have it installed as a browser extension.
+              You can install it from <Link href='href={"https://metamask.io/"}' isExternal color='teal.500'>here</Link>. Or try to check if your wallet extension is turned on and ready for incoming connections</Text>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <Button
+        onClick={handleConnectWallet}
+        bg="blue.800"
+        color="blue.300"
+        fontSize="lg"
+        fontWeight="medium"
+        borderRadius="xl"
+        border="1px solid transparent"
+        _hover={{
+          borderColor: "blue.700",
+          color: "blue.400",
+        }}
+        _active={{
+          backgroundColor: "blue.800",
+          borderColor: "blue.700",
+        }}
+      >
+        Connect wallet
+      </Button>
+    </>
   );
 }

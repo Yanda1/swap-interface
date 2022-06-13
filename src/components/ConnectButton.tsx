@@ -2,12 +2,6 @@ import {
   Button,
   Box,
   Text,
-  useToast,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
-  CloseButton,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -20,26 +14,45 @@ import {
 import { useEthers, useEtherBalance, Moonbeam } from "@usedapp/core";
 import { formatEther } from "@ethersproject/units";
 import Identicon from "./Identicon";
-import { useState, useEffect } from "react";
-import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
+
 type Props = {
   handleOpenModal: any;
 };
 
 export default function ConnectButton({ handleOpenModal }: Props) {
-  const { activateBrowserWallet, account } = useEthers();
+  const { activateBrowserWallet, library, account, chainId, switchNetwork } = useEthers();
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  async function handleConnectWallet() {
-    try {
-      await activateBrowserWallet();
-    } catch (error) {
-      onOpen()
+  function checkNetwork() {
+    if (!chainId) {
+      switchNetwork(Moonbeam.chainId).catch(error => {
+        console.log('error in switchNetwork', error);
+      });
     }
   }
 
-  return account ? (
+  async function handleConnectWallet() {
+    if (!account) {
+      try {
+        await activateBrowserWallet();
+      } catch (error) {
+        console.log('error in activateBrowserWallet', error);
+        onOpen();
+      }
+    }
+
+    if (!chainId) {
+      checkNetwork();
+    }
+  }
+
+  useEffect(() => {
+    checkNetwork();
+  }, [account])
+
+  return account && chainId ? (
     <Box
       display="flex"
       alignItems="center"
@@ -122,7 +135,7 @@ export default function ConnectButton({ handleOpenModal }: Props) {
           borderColor: "blue.700",
         }}
       >
-        Connect wallet
+        {!account ? "Connect wallet" : "Change Network"}
       </Button>
     </>
   );

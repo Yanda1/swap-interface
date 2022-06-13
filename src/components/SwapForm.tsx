@@ -124,7 +124,7 @@ export default function SwapForm() {
       {chainId ?
         <SwapButton ref={swapButtonRef} amount={amount} destCurrency={destCurrency} destNetwork={destNetwork} destAddr={destAddress} isSubmitting={isSubmitting} />
         :
-        <span>Please Connect Wallet</span>
+        <Text fontSize='lg' fontWeight='bold' color='red.400' mt={5}>Please Change Network</Text>
       }
       {/* { errorMessage &&
         <>

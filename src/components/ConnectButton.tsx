@@ -2,12 +2,6 @@ import {
   Button,
   Box,
   Text,
-  useToast,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
-  CloseButton,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -20,18 +14,35 @@ import {
 import { useEthers, useEtherBalance, Moonbeam } from "@usedapp/core";
 import { formatEther } from "@ethersproject/units";
 import Identicon from "./Identicon";
-import { useState, useEffect } from "react";
+
 import userEvent from "@testing-library/user-event";
 type Props = {
   handleOpenModal: any;
 };
 
 export default function ConnectButton({ handleOpenModal }: Props) {
-  const { activateBrowserWallet, account } = useEthers();
+  const { activateBrowserWallet, account, chainId, switchNetwork } = useEthers();
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  console.log(chainId)
+  function switchAndActivate(newChainId: number) {
+    switchNetwork(newChainId)
+      .then(() => {
+        activateBrowserWallet();
+      })
+      .catch((error) => {
+        console.log('error', error);
+      })
+  }
 
   async function handleConnectWallet() {
+    if (!chainId) {
+      console.log(122121212)
+      switchAndActivate(Moonbeam.chainId)
+      activateBrowserWallet();
+    } else {
+      activateBrowserWallet();
+    }
     try {
       await activateBrowserWallet();
     } catch (error) {
@@ -39,7 +50,14 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     }
   }
 
-  return account ? (
+  // useEffect(() => {
+  //   if (Moonbeam.chainId !== chainId && account) {
+  //     console.log(232323)
+  //     switchAndActivate(Moonbeam.chainId);
+  //   }
+  // }, [chainId]);
+
+  return account && chainId ? (
     <Box
       display="flex"
       alignItems="center"

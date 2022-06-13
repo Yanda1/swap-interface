@@ -14,48 +14,43 @@ import {
 import { useEthers, useEtherBalance, Moonbeam } from "@usedapp/core";
 import { formatEther } from "@ethersproject/units";
 import Identicon from "./Identicon";
+import { useEffect } from "react";
 
-import userEvent from "@testing-library/user-event";
 type Props = {
   handleOpenModal: any;
 };
 
 export default function ConnectButton({ handleOpenModal }: Props) {
-  const { activateBrowserWallet, account, chainId, switchNetwork } = useEthers();
+  const { activateBrowserWallet, library, account, chainId, switchNetwork } = useEthers();
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  console.log(chainId)
-  function switchAndActivate(newChainId: number) {
-    switchNetwork(newChainId)
-      .then(() => {
-        activateBrowserWallet();
-      })
-      .catch((error) => {
-        console.log('error', error);
-      })
+
+  function checkNetwork() {
+    if (!chainId) {
+      switchNetwork(Moonbeam.chainId).catch(error => {
+        console.log('error in switchNetwork', error);
+      });
+    }
   }
 
   async function handleConnectWallet() {
-    if (!chainId) {
-      console.log(122121212)
-      switchAndActivate(Moonbeam.chainId)
-      activateBrowserWallet();
-    } else {
-      activateBrowserWallet();
+    if (!account) {
+      try {
+        await activateBrowserWallet();
+      } catch (error) {
+        console.log('error in activateBrowserWallet', error);
+        onOpen();
+      }
     }
-    try {
-      await activateBrowserWallet();
-    } catch (error) {
-      onOpen()
+
+    if (!chainId) {
+      checkNetwork();
     }
   }
 
-  // useEffect(() => {
-  //   if (Moonbeam.chainId !== chainId && account) {
-  //     console.log(232323)
-  //     switchAndActivate(Moonbeam.chainId);
-  //   }
-  // }, [chainId]);
+  useEffect(() => {
+    checkNetwork();
+  }, [account])
 
   return account && chainId ? (
     <Box
@@ -140,7 +135,7 @@ export default function ConnectButton({ handleOpenModal }: Props) {
           borderColor: "blue.700",
         }}
       >
-        Connect wallet
+        {!account ? "Connect wallet" : "Change Network"}
       </Button>
     </>
   );

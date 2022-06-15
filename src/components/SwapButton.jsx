@@ -11,7 +11,7 @@ import { CONTRACT_ADDRESSES } from '../web3/constants';
 import CONTRACT_DATA from '../web3/YandaExtendedProtocol.json';
 type Props = {
   ref: any,
-  amount: string;
+  amount: number;
   destCurrency: string;
   destNetwork: StringOrNumber;
   destAddr: string;

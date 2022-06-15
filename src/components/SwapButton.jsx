@@ -16,8 +16,9 @@ type Props = {
   destNetwork: StringOrNumber;
   destAddr: string;
   isSubmitting: boolean;
+  tag: string;
 };
-const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isSubmitting }: Props, ref) => {
+const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isSubmitting, tag }: Props, ref) => {
   const { account, chainId, library: web3Provider } = useEthers();
   const toast = useToast();
   // @ts-ignore
@@ -96,14 +97,29 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
   useImperativeHandle(ref, () => ({
     async onSubmit() {
       const productId = utils.id(makeid(32));;
-      const shortNamedValues = JSON.stringify({
+      // const shortNamedValues = JSON.stringify({
+      //   'scoin': 'GLMR',
+      //   'samt': utils.parseEther(amount).toString(),
+      //   'fcoin': destCurrency,
+      //   'net': destNetwork,
+      //   'daddr': destAddr,
+      //   // 'tag': '',
+      // });
+      
+      let namedValues = {
         'scoin': 'GLMR',
         'samt': utils.parseEther(amount).toString(),
         'fcoin': destCurrency,
         'net': destNetwork,
         'daddr': destAddr,
-        // 'tag': '',
-      });
+      }
+
+      if (tag) {
+        namedValues.tag = tag;
+      }
+
+      const shortNamedValues = JSON.stringify(namedValues);
+
       console.log('shortNamedValues', shortNamedValues);
       // const serviceAddress = '0x70997970c51812dc3a010c7d01b50e0d17dc79c8';
       const serviceAddress = '0xeB56c1d19855cc0346f437028e6ad09C80128e02';

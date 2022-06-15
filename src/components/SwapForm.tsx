@@ -32,12 +32,15 @@ export default function SwapForm() {
   const [startCurrency, setStartCurrency] = useState('GLMR')
   const [destCurrency, setDestCurrency] = useState('BTC');
   const [availableNetworks, setAvailableNetworks] = useState(getAssetNetworks(destCurrency));
-  const { value: destNetwork, getRootProps, getRadioProps } = useRadioGroup({
+  const { value: destNetwork, getRootProps, getRadioProps, } = useRadioGroup({
     onChange: onChangeDestNetwork,
   })
+
   const group = getRootProps()
   const [amount, setAmount] = useState(0);
   const [destAddress, setDestAddress] = useState('');
+  const [tag, setTag] = useState("");
+
   const { isOpen, onOpen: showChangeCurrency, onClose } = useDisclosure();
   const swapButtonRef = useRef();
   const [currentPrice, setCurrentPrice] = useState(0);
@@ -64,8 +67,10 @@ export default function SwapForm() {
     console.log('Network', value)
   }
   function onCurrencySelected(value: any) {
+    console.log("onCurrencySelected", value)
     const networks = getAssetNetworks(value)
     setAvailableNetworks(networks);
+    console.log(availableNetworks)
     setDestCurrency(value);
   }
 
@@ -73,12 +78,14 @@ export default function SwapForm() {
     console.log('Form values:', values)
 
     setDestAddress(values['destAddr'])
+    setTag(values['tag'])
+
     // @ts-ignore
     swapButtonRef.current.onSubmit();
   }
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <FormControl maxW={'20rem'} isInvalid={errors.amount || errors.destAddr} color={'white'}>
+      <FormControl maxW={'20rem'} isInvalid={errors.amount || errors.destAddr || errors.tag} color={'white'}>
         <FormLabel htmlFor='amount'>Amount to SWAP</FormLabel>
         <NumberInput id='amount' onChange={(value: any) => setAmount(value)} isInvalid={errors.amount} min={18}>
           <NumberInputField
@@ -108,10 +115,10 @@ export default function SwapForm() {
         <FormLabel mt="20px" htmlFor='destNetwork'>Destination Network</FormLabel>
         <RadioGroup id='destNetwork'>
           <Stack direction='row' wrap="wrap" align="left" {...group}>
-            {availableNetworks.map((value: string) => {
+            {availableNetworks.map((value: any) => {
               return (
-                <RadioCard key={value} {...getRadioProps({ value: value })}>
-                  {value}
+                <RadioCard key={value.name} {...getRadioProps({ value: value.name })}>
+                  {value.name}
                 </RadioCard>
               )
             })}
@@ -129,9 +136,28 @@ export default function SwapForm() {
         <FormErrorMessage>
           {errors.destAddr && errors.destAddr.message}
         </FormErrorMessage>
+        {availableNetworks.find((value: any) => value.name === destNetwork && value.hasTag)
+          ? (
+            <>
+              <FormLabel mt="20px" htmlFor='tag'>Memo: </FormLabel>
+              <Input
+                id='tag'
+                placeholder='Address memo...'
+                isInvalid={errors.tag}
+                {...register('tag', {
+                  required: 'This is required',
+                })}
+              />
+              <FormErrorMessage>
+                {errors.tag && errors.tag.message}
+              </FormErrorMessage>
+            </>)
+          : null
+        }
+
       </FormControl>
       {chainId ?
-        <SwapButton ref={swapButtonRef} amount={amount} destCurrency={destCurrency} destNetwork={destNetwork} destAddr={destAddress} isSubmitting={isSubmitting} />
+        <SwapButton ref={swapButtonRef} amount={amount} destCurrency={destCurrency} destNetwork={destNetwork} destAddr={destAddress} isSubmitting={isSubmitting} tag={tag} />
         :
         <Text fontSize='lg' fontWeight='bold' color='red.400' mt={5}>Please Change Network</Text>
       }

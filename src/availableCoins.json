@@ -1,24 +1,28 @@
 {
     "BTC": [
-        "BSC",
-        "BTC",
-        "SEGWITBTC",
-        "ETH"
+        { "name": "BSC", "hasTag": false },
+        { "name": "BTC", "hasTag": false },
+        { "name": "SEGWITBTC", "hasTag": false },
+        { "name": "ETH", "hasTag": false },
+        { "name": "BNB", "hasTag": true }
     ],
     "USDT": [
-        "BSC",
-        "AVAXC",
-        "ETH",
-        "MATIC",
-        "SOL",
-        "TRX"
+        { "name": "BSC", "hasTag": false },
+        { "name": "AVAXC", "hasTag": false },
+        { "name": "ETH", "hasTag": false },
+        { "name": "MATIC", "hasTag": false },
+        { "name": "SOL", "hasTag": false },
+        { "name": "TRX", "hasTag": false },
+        { "name": "BNB", "hasTag": true }
     ],
     "BUSD": [
-        "BSC",
-        "ETH"
+        { "name": "BSC", "hasTag": false },
+        { "name": "ETH", "hasTag": false },
+        { "name": "BNB", "hasTag": true }
     ],
     "BNB": [
-        "BSC",
-        "ETH" 
+        { "name": "BSC", "hasTag": false },
+        { "name": "ETH", "hasTag": false },
+        { "name": "BNB", "hasTag": true }
     ]
 }

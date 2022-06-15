@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   FormErrorMessage,
@@ -29,30 +29,37 @@ export default function SwapForm() {
   const { chainId, library: web3Provider } = useEthers();
   // State vars declaration
   const [estimatedResult, setEstimatedResult] = useState(0);
+  const [startCurrency, setStartCurrency] = useState('GLMR')
   const [destCurrency, setDestCurrency] = useState('BTC');
   const [availableNetworks, setAvailableNetworks] = useState(getAssetNetworks(destCurrency));
   const { value: destNetwork, getRootProps, getRadioProps } = useRadioGroup({
     onChange: onChangeDestNetwork,
   })
   const group = getRootProps()
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(0);
   const [destAddress, setDestAddress] = useState('');
   const { isOpen, onOpen: showChangeCurrency, onClose } = useDisclosure();
   const swapButtonRef = useRef();
-  function getAssetPrice() {
-    // TODO replace with the real price calc logic
-    return 0.00004259
-  }
+  const [currentPrice, setCurrentPrice] = useState(0);
+
+  useEffect(() => {
+    fetch(`https://www.binance.com/api/v3/ticker/price?symbol=${startCurrency}${destCurrency}`)
+      .then((res) => res.json())
+      .then((data) => setCurrentPrice(data.price))
+  }, [destCurrency, startCurrency])
+
+  useEffect(() => {
+    if (amount <= 0) {
+      setEstimatedResult(0);
+    } else {
+      setEstimatedResult(Number((amount * currentPrice).toFixed(8)));
+    }
+  }, [currentPrice, amount]);
+
   function getAssetNetworks(currency: string) {
     return availableCoins[currency];
   }
-  function onChangeAmount(value: any) {
-    if (value === '-' || value <= 0) {
-      setEstimatedResult(0);
-    } else {
-      setEstimatedResult(Number((value * getAssetPrice()).toFixed(8)));
-    }
-  }
+
   function onChangeDestNetwork(value: any) {
     console.log('Network', value)
   }
@@ -61,9 +68,10 @@ export default function SwapForm() {
     setAvailableNetworks(networks);
     setDestCurrency(value);
   }
+
   async function onSubmit(values: any) {
     console.log('Form values:', values)
-    setAmount(values['amount'])
+
     setDestAddress(values['destAddr'])
     // @ts-ignore
     swapButtonRef.current.onSubmit();
@@ -72,7 +80,7 @@ export default function SwapForm() {
     <form onSubmit={handleSubmit(onSubmit)}>
       <FormControl maxW={'20rem'} isInvalid={errors.amount || errors.destAddr} color={'white'}>
         <FormLabel htmlFor='amount'>Amount to SWAP</FormLabel>
-        <NumberInput id='amount' onChange={onChangeAmount} isInvalid={errors.amount}>
+        <NumberInput id='amount' onChange={(value: any) => setAmount(value)} isInvalid={errors.amount} min={18}>
           <NumberInputField
             {...register('amount', {
               required: 'This is required',

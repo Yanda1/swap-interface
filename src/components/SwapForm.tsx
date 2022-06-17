@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import {
@@ -19,7 +20,10 @@ import { useEthers } from '@usedapp/core';
 import RadioCard from './RadioCard';
 import CurrenciesModal from './CurrenciesModal';
 import SwapButton from './SwapButton';
+import Graph from "../utils/Graph"
+import { pathToFileURL } from 'url';
 const availableCoins = require('../availableCoins.json');
+
 export default function SwapForm() {
   const {
     handleSubmit,
@@ -43,21 +47,79 @@ export default function SwapForm() {
 
   const { isOpen, onOpen: showChangeCurrency, onClose } = useDisclosure();
   const swapButtonRef = useRef();
-  const [currentPrice, setCurrentPrice] = useState(0);
+  interface Ticker {
+    symbol: string;
+    price: string;
+  }
+  const [allPrices, setAllPrices] = useState<Ticker[]>([]);
+  const [graph, setGraph] = useState(null);
+  const [allPairs, setAllPairs] = useState([]);
+  const [graphPath, setGraphPath] = useState({});
 
   useEffect(() => {
-    fetch(`https://www.binance.com/api/v3/ticker/price?symbol=${startCurrency}${destCurrency}`)
+    fetch(`https://api.binance.com/api/v3/exchangeInfo`)
       .then((res) => res.json())
-      .then((data) => setCurrentPrice(data.price))
+      .then((data) => setAllPairs(data.symbols))
+  }, []);
+
+  useEffect(() => {
+    const localGraph = new Graph();
+    for (let i = 0; i < allPairs.length; i++) {
+      // @ts-ignore
+      localGraph.addEdge(allPairs[i].baseAsset, allPairs[i].quoteAsset)
+      if (allPairs.length === localGraph.edges) {
+        //@ts-ignore
+        setGraph(localGraph)
+      }
+    }
+  }, [allPairs]);
+
+
+  useEffect(() => {
+    fetch(`https://api.binance.com/api/v3/ticker/price`)
+      .then((res) => res.json())
+      .then((data) => {
+        setAllPrices(data);
+      })
   }, [destCurrency, startCurrency])
 
   useEffect(() => {
-    if (amount <= 0) {
-      setEstimatedResult(0);
-    } else {
-      setEstimatedResult(Number((amount * currentPrice).toFixed(8)));
+    if (graph) {
+      setGraphPath(graph.bfs(startCurrency, destCurrency))
     }
-  }, [currentPrice, amount]);
+  }, [destCurrency, startCurrency, graph]);
+
+
+  async function finalPrice(graphPath: any, tickers: Ticker[]) {
+    let price = 0;
+    for (let i = 0; i < graphPath.distance; i++) {
+      console.log(`${graphPath.path[i]} -> ${graphPath.path[i + 1]}`)
+      let edge_price = 0;
+      let ticker: any = tickers.find((x: any) => x.symbol === graphPath.path[i] + graphPath.path[i + 1]);
+      if (ticker) {
+        edge_price = ticker.price
+      } else {
+        ticker = tickers.find((x: any) => x.symbol === graphPath.path[i + 1] + graphPath.path[i]);
+        edge_price = 1 / ticker.price
+      }
+      if (price === 0) {
+        price = edge_price
+      } else {
+        price *= edge_price
+      }
+    }
+    setEstimatedResult(Number((amount * price).toFixed(8)));
+  }
+
+  useEffect(() => {
+    if (amount <= 0) {
+      setEstimatedResult(0)
+    } else {
+      console.log("---RESULT---", graphPath)
+      finalPrice(graphPath, allPrices)
+    }
+  }, [amount, graphPath, allPrices])
+
 
   function getAssetNetworks(currency: string) {
     return availableCoins[currency];
@@ -70,16 +132,14 @@ export default function SwapForm() {
     console.log("onCurrencySelected", value)
     const networks = getAssetNetworks(value)
     setAvailableNetworks(networks);
-    console.log(availableNetworks)
+
     setDestCurrency(value);
   }
 
   async function onSubmit(values: any) {
     console.log('Form values:', values)
-
     setDestAddress(values['destAddr'])
     setTag(values['tag'])
-
     // @ts-ignore
     swapButtonRef.current.onSubmit();
   }

@@ -24,5 +24,12 @@
         { "name": "BSC", "hasTag": false },
         { "name": "ETH", "hasTag": false },
         { "name": "BNB", "hasTag": true }
+    ],
+    "ACA": [
+        { "name": "ACA", "hasTag": false }
+    ],
+    "ETH": [
+        { "name": "ETH", "hasTag": false },
+        { "name": "BSC", "hasTag": false }
     ]
 }

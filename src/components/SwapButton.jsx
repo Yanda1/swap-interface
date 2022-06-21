@@ -35,7 +35,7 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
     if (createState.status.toString() == 'Mining') {
       toast({
         title: 'Waiting',
-        description: "Transaction is minting at this moment, soon it will be confirmed...",
+        description: "Transaction is mining at this moment, soon it will be confirmed...",
         status: 'info',
         duration: 9000,
         isClosable: true,
@@ -43,7 +43,7 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
     } else if (createState.status.toString() == 'Success') {
       toast({
         title: 'Confirmation',
-        description: "Swap request was successfully sent.\nNow waiting for a deposit final amount estimation...",
+        description: "Swap request was successfully sent.\nNow waiting for a deposit approval...",
         status: 'success',
         duration: 9000,
         isClosable: true,
@@ -62,7 +62,7 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
     if (depositState.status.toString() == 'Mining') {
       toast({
         title: 'Waiting',
-        description: "Transaction is minting at this moment, soon it will be confirmed...",
+        description: "Transaction is mining at this moment, soon it will be confirmed...",
         status: 'info',
         duration: 9000,
         isClosable: true,
@@ -127,7 +127,7 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
       const filter = contract.filters.CostResponse(account, serviceAddress, productId);
       console.log('filter', filter);
       contract.on(filter, (customer, service, productId, cost, event) => {
-        console.log('Oracle cost estimation:', utils.formatEther(cost));
+        console.log('Oracle deposit estimation:', utils.formatEther(cost));
         sendTransaction({ to: contractAddress, value: cost });
       })
     }

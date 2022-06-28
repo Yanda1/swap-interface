@@ -13,6 +13,7 @@ import {
   RadioGroup,
   Stack,
   Text,
+  Box,
   useRadioGroup,
   useDisclosure,
 } from '@chakra-ui/react';
@@ -22,9 +23,12 @@ import CurrenciesModal from './CurrenciesModal';
 import SwapButton from './SwapButton';
 import Graph from "../utils/Graph"
 import { pathToFileURL } from 'url';
+import { CONTRACT_ADDRESSES } from '../web3/constants';
+import CONTRACT_DATA from '../web3/YandaExtendedProtocol.json';
+import { Contract, utils } from 'ethers';
 const availableCoins = require('../availableCoins.json');
 
-export default function SwapForm() {
+export default function SwapForm({ updateData }: any) {
   const {
     handleSubmit,
     register,
@@ -115,7 +119,6 @@ export default function SwapForm() {
     if (amount <= 0) {
       setEstimatedResult(0)
     } else {
-      console.log("---RESULT---", graphPath)
       finalPrice(graphPath, allPrices)
     }
   }, [amount, graphPath, allPrices])
@@ -143,6 +146,61 @@ export default function SwapForm() {
     // @ts-ignore
     swapButtonRef.current.onSubmit();
   }
+  // @ts-ignore
+  const contractAddress = chainId ? CONTRACT_ADDRESSES[chainId] : null;
+  const contractInterface = new utils.Interface(CONTRACT_DATA.abi)
+  const contract = new Contract(contractAddress, contractInterface, web3Provider)
+  if (web3Provider) {
+    contract.connect(web3Provider.getSigner());
+  }
+
+  // useEffect(async () => {
+  //   try {
+  //     const filter = await contract.filters.CostRequest('0xaf82890a2862aa87d005091e2960179e90f0cb8a', '0xeB56c1d19855cc0346f437028e6ad09C80128e02', '0x85097b99961f0eb572f82f824936c10b3970abf97c322ad3688f3ad5c5b64911');
+  //     const events = await contract.queryFilter(filter, 1281778)
+  //     console.log("---COST REQUEST EVENTS---", events)
+  //     if (events) {
+  //       updateData(events[0])
+  //       updateData(events[1])
+  //     }
+  //   } catch (error) {
+  //     console.log("NO EVENTS COST REQUEST")
+  //   }
+  //   try {
+  //     const filter = await contract.filters.Deposit('0xaf82890a2862aa87d005091e2960179e90f0cb8a', '0xeB56c1d19855cc0346f437028e6ad09C80128e02', '0x85097b99961f0eb572f82f824936c10b3970abf97c322ad3688f3ad5c5b64911');
+  //     const events = await contract.queryFilter(filter, 1281778)
+  //     console.log("---DEPOSIT EVENTS---", events)
+  //     if (events) {
+  //       updateData(events[0])
+  //     }
+  //   } catch (error) {
+  //     console.log("NO EVENTS DEPOSIT")
+  //   }
+  //   try {
+  //     const filter = await contract.filters.Action('0xaf82890a2862aa87d005091e2960179e90f0cb8a', '0xeB56c1d19855cc0346f437028e6ad09C80128e02', '0x85097b99961f0eb572f82f824936c10b3970abf97c322ad3688f3ad5c5b64911');
+  //     const events = await contract.queryFilter(filter, 1281778)
+  //     console.log("---Action EVENTS---", events)
+  //     if (events) {
+  //       updateData(events[0])
+  //       updateData(events[1])
+  //     }
+  //   } catch (error) {
+  //     console.log("NO EVENTS Action")
+  //   }
+  //   try {
+  //     const filter = await contract.filters.Complete('0xaf82890a2862aa87d005091e2960179e90f0cb8a', '0xeB56c1d19855cc0346f437028e6ad09C80128e02', '0x85097b99961f0eb572f82f824936c10b3970abf97c322ad3688f3ad5c5b64911');
+  //     const events = await contract.queryFilter(filter, 1281778)
+  //     console.log("---Complete EVENTS---", events)
+  //     if (events) {
+  //       updateData(events[0])
+  //     }
+  //   } catch (error) {
+  //     console.log("NO EVENTS Complete")
+  //   }
+  // }, [])
+
+
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <FormControl maxW={'20rem'} isInvalid={errors.amount || errors.destAddr || errors.tag} color={'white'}>
@@ -217,7 +275,19 @@ export default function SwapForm() {
 
       </FormControl>
       {chainId ?
-        <SwapButton ref={swapButtonRef} amount={amount} destCurrency={destCurrency} destNetwork={destNetwork} destAddr={destAddress} isSubmitting={isSubmitting} tag={tag} />
+        <SwapButton
+          ref={swapButtonRef}
+          amount={amount}
+          destCurrency={destCurrency}
+          destNetwork={destNetwork}
+          destAddr={destAddress}
+          isSubmitting={isSubmitting}
+          tag={tag}
+          contract={contract}
+          contractAddress={contractAddress}
+          updateData={updateData}
+        />
+
         :
         <Text fontSize='lg' fontWeight='bold' color='red.400' mt={5}>Please Change Network</Text>
       }
@@ -230,3 +300,4 @@ export default function SwapForm() {
     </form>
   )
 }
+

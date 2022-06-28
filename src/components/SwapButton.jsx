@@ -1,4 +1,4 @@
-import { useEffect, forwardRef, useImperativeHandle  } from 'react';
+import { useEffect, forwardRef, useImperativeHandle, useState  } from 'react';
 import { StringOrNumber } from "@chakra-ui/utils";
 import { useEthers, useContractFunction, useSendTransaction } from '@usedapp/core';
 import { utils } from 'ethers';
@@ -7,6 +7,8 @@ import {
   Button,
   useToast,
 } from '@chakra-ui/react';
+import { useDispatch, useSelector } from 'react-redux';
+import {setDepositing} from '../store/accordionReducer';
 import { CONTRACT_ADDRESSES } from '../web3/constants';
 import CONTRACT_DATA from '../web3/YandaExtendedProtocol.json';
 type Props = {
@@ -17,20 +19,21 @@ type Props = {
   destAddr: string;
   isSubmitting: boolean;
   tag: string;
+  contract: any;
+  contractAddress: any;
+  updateData: any;
 };
-const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isSubmitting, tag }: Props, ref) => {
+const SwapButton = forwardRef(({ amount, destCurrency, destNetwork, destAddr, isSubmitting, tag, contract, contractAddress, updateData}: Props, ref) => {
   const { account, chainId, library: web3Provider } = useEthers();
   const toast = useToast();
-  // @ts-ignore
-  const contractAddress = CONTRACT_ADDRESSES[chainId];
-  const contractInterface = new utils.Interface(CONTRACT_DATA.abi)
-  const contract = new Contract(contractAddress, contractInterface, web3Provider)
-  if(web3Provider) {
-    contract.connect(web3Provider.getSigner());
-  }
   const { state: createState, send: sendCreateProcess } = useContractFunction(contract, 'createProcess', { transactionName: 'Request Swap' });
   const { sendTransaction, state: depositState } = useSendTransaction({ transactionName: 'Deposit' });
   const { errorMessage, status: createStatus } = createState;
+  const [productId, setProductId] = useState();
+  const dispatch = useDispatch();
+  const accordion = useSelector((state: any) => state.accordion[productId])
+
+
   useEffect(() => {
     if (createState.status.toString() == 'Mining') {
       toast({
@@ -40,6 +43,8 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
         duration: 9000,
         isClosable: true,
       })
+      console.log("PRODUCTID------",productId)
+      updateData(productId)
     } else if (createState.status.toString() == 'Success') {
       toast({
         title: 'Confirmation',
@@ -60,6 +65,7 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
   }, [createState])
   useEffect(() => {
     if (depositState.status.toString() == 'Mining') {
+      dispatch(setDepositing({value: true, productId: productId}))
       toast({
         title: 'Waiting',
         description: "Transaction is minting at this moment, soon it will be confirmed...",
@@ -96,7 +102,8 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
   }
   useImperativeHandle(ref, () => ({
     async onSubmit() {
-      const productId = utils.id(makeid(32));;
+      const localProductId = utils.id(makeid(32));
+      setProductId(localProductId);
       // const shortNamedValues = JSON.stringify({
       //   'scoin': 'GLMR',
       //   'samt': utils.parseEther(amount).toString(),
@@ -123,13 +130,16 @@ const SwapButton = forwardRef(({amount, destCurrency, destNetwork, destAddr, isS
       console.log('shortNamedValues', shortNamedValues);
       // const serviceAddress = '0x70997970c51812dc3a010c7d01b50e0d17dc79c8';
       const serviceAddress = '0xeB56c1d19855cc0346f437028e6ad09C80128e02';
-      await sendCreateProcess(serviceAddress, productId, shortNamedValues);
+      console.log("PRODUCTID------",localProductId)
+      await sendCreateProcess(serviceAddress, localProductId, shortNamedValues);
       const filter = contract.filters.CostResponse(account, serviceAddress, productId);
       console.log('filter', filter);
-      contract.on(filter, (customer, service, productId, cost, event) => {
-        console.log('Oracle cost estimation:', utils.formatEther(cost));
-        sendTransaction({ to: contractAddress, value: cost });
-      })
+      if (!accordion.depositing) {
+        contract.on(filter, (customer, service, localProductId, cost, event) => {
+          console.log('Oracle cost estimation:', utils.formatEther(cost));
+          sendTransaction({ to: contractAddress, value: cost });
+        })
+      }
     }
   }));
   return (

@@ -15,6 +15,7 @@ import { useEthers, useEtherBalance, Moonbeam } from "@usedapp/core";
 import { formatEther } from "@ethersproject/units";
 import Identicon from "./Identicon";
 import { useEffect } from "react";
+import { ethers } from "ethers";
 
 type Props = {
   handleOpenModal: any;
@@ -25,11 +26,28 @@ export default function ConnectButton({ handleOpenModal }: Props) {
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  function checkNetwork() {
+  async function checkNetwork() {
+    const network_params = [
+      {
+        chainId: ethers.utils.hexValue(Moonbeam.chainId),
+        chainName: Moonbeam.chainName,
+        rpcUrls: ['https://rpc.api.moonbeam.network'],
+        nativeCurrency: {
+          name: 'Glimer',
+          symbol: 'GLMR',
+          decimals: 18
+        },
+        blockExplorerUrls: ['https://moonscan.io/'],
+      },
+    ]
+
     if (!chainId) {
-      switchNetwork(Moonbeam.chainId).catch(error => {
-        console.log('error in switchNetwork', error);
-      });
+      await switchNetwork(Moonbeam.chainId)
+      if (chainId !== Moonbeam.chainId) {
+        // @ts-ignore
+        await library.send('wallet_addEthereumChain', network_params);        
+      }
+
     }
   }
 
@@ -44,12 +62,13 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     }
 
     if (!chainId) {
-      checkNetwork();
+      await checkNetwork();
     }
   }
 
-  useEffect(() => {
-    checkNetwork();
+  // @ts-ignore
+  useEffect(async () => {
+    await checkNetwork();
   }, [account])
 
   return account && chainId ? (

@@ -1,19 +1,13 @@
 import {
   Box,
   Button,
-  Flex,
-  Link,
   Modal,
   ModalOverlay,
   ModalContent,
   ModalHeader,
-  ModalFooter,
   ModalBody,
   ModalCloseButton,
-  Text,
 } from "@chakra-ui/react";
-import { ExternalLinkIcon, CopyIcon } from "@chakra-ui/icons";
-import Identicon from "./Identicon";
 
 type Props = {
   isOpen: any;
@@ -22,8 +16,12 @@ type Props = {
   onSelected: any;
 };
 
-export default function CurrenciesModal({ isOpen, onClose, currencies, onSelected }: Props) {
-
+export default function CurrenciesModal({
+  isOpen,
+  onClose,
+  currencies,
+  onSelected,
+}: Props) {
   function selectCurrency(event: any) {
     onSelected(event.target.innerText);
     onClose();
@@ -50,8 +48,7 @@ export default function CurrenciesModal({ isOpen, onClose, currencies, onSelecte
           }}
         />
         <ModalBody pt={0} px={4}>
-
-          { currencies.map((value: any) => {
+          {currencies.map((value: any) => {
             return (
               <Box key={value}>
                 <Button
@@ -64,9 +61,8 @@ export default function CurrenciesModal({ isOpen, onClose, currencies, onSelecte
                   {value}
                 </Button>
               </Box>
-            )
-          }) }
-
+            );
+          })}
         </ModalBody>
 
         {/* <ModalFooter

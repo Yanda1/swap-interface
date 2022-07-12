@@ -22,41 +22,48 @@ type Props = {
 };
 
 export default function ConnectButton({ handleOpenModal }: Props) {
-  const { activateBrowserWallet, library, account, chainId, switchNetwork } = useEthers();
+  const { activateBrowserWallet, library, account, chainId, switchNetwork } =
+    useEthers();
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  console.log("account", account);
 
   async function checkNetwork() {
     const network_params = [
       {
         chainId: ethers.utils.hexValue(Moonbeam.chainId),
         chainName: Moonbeam.chainName,
-        rpcUrls: ['https://rpc.api.moonbeam.network'],
+        rpcUrls: ["https://rpc.api.moonbeam.network"],
         nativeCurrency: {
-          name: 'Glimer',
-          symbol: 'GLMR',
-          decimals: 18
+          name: "Glimer",
+          symbol: "GLMR",
+          decimals: 18,
         },
-        blockExplorerUrls: ['https://moonscan.io/'],
+        blockExplorerUrls: ["https://moonscan.io/"],
       },
-    ]
+    ];
 
     if (!chainId) {
-      await switchNetwork(Moonbeam.chainId)
+      await switchNetwork(Moonbeam.chainId);
       if (chainId !== Moonbeam.chainId) {
         // @ts-ignore
-        await library.send('wallet_addEthereumChain', network_params);        
+        const res = await library.send(
+          "wallet_addEthereumChain",
+          network_params
+        );
+        console.log(res);
       }
-
     }
   }
 
   async function handleConnectWallet() {
     if (!account) {
       try {
-        await activateBrowserWallet();
+        const res = await activateBrowserWallet();
+        console.log("%c BUTTON CONNECT", "color: red", res);
       } catch (error) {
-        console.log('error in activateBrowserWallet', error);
+        console.log("error in activateBrowserWallet", error);
         onOpen();
       }
     }
@@ -66,10 +73,14 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     }
   }
 
-  // @ts-ignore
-  useEffect(async () => {
-    await checkNetwork();
-  }, [account])
+  useEffect(() => {
+    const checkNetwork = async () => {
+      if (!chainId) {
+        await checkNetwork();
+      }
+    };
+    checkNetwork();
+  }, [chainId, account]);
 
   return account && chainId ? (
     <Box
@@ -81,7 +92,8 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     >
       <Box px="3">
         <Text color="white" fontSize="md">
-          {etherBalance && parseFloat(formatEther(etherBalance)).toFixed(3)} GLMR
+          {etherBalance && parseFloat(formatEther(etherBalance)).toFixed(3)}{" "}
+          GLMR
         </Text>
       </Box>
       <Button
@@ -131,8 +143,19 @@ export default function ConnectButton({ handleOpenModal }: Props) {
             }}
           />
           <ModalBody pt={0} px={4}>
-            <Text color="white">In order to connect wallet, you should have it installed as a browser extension.
-              You can install it from <Link href='href={"https://metamask.io/"}' isExternal color='teal.500'>here</Link>. Or try to check if your wallet extension is turned on and ready for incoming connections</Text>
+            <Text color="white">
+              In order to connect wallet, you should have it installed as a
+              browser extension. You can install it from{" "}
+              <Link
+                href='href={"https://metamask.io/"}'
+                isExternal
+                color="teal.500"
+              >
+                here
+              </Link>
+              . Or try to check if your wallet extension is turned on and ready
+              for incoming connections
+            </Text>
           </ModalBody>
         </ModalContent>
       </Modal>

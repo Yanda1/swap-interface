@@ -14,11 +14,23 @@ import {
 import { useEthers, useEtherBalance, Moonbeam } from "@usedapp/core";
 import { formatEther } from "@ethersproject/units";
 import Identicon from "./Identicon";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 
 type Props = {
   handleOpenModal: any;
+};
+
+type ButtonType = {
+  CONNECT_WALLET: { color: string; text: string };
+  CHANGE_NETWORK: { color: string; text: string };
+  PASS_KYC: { color: string; text: string };
+};
+
+const button: ButtonType = {
+  CONNECT_WALLET: { color: "blue", text: "Connect Wallet" },
+  CHANGE_NETWORK: { color: "red", text: "Change Network" },
+  PASS_KYC: { color: "orange", text: "Pass KYC" },
 };
 
 export default function ConnectButton({ handleOpenModal }: Props) {
@@ -26,8 +38,7 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     useEthers();
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
-
-  console.log("account", account);
+  const [buttonInfo, setButtonInfo] = useState(button.CONNECT_WALLET);
 
   async function checkNetwork() {
     const network_params = [
@@ -60,14 +71,14 @@ export default function ConnectButton({ handleOpenModal }: Props) {
   async function handleConnectWallet() {
     if (!account) {
       try {
-        const res = await activateBrowserWallet();
-        console.log("%c BUTTON CONNECT", "color: red", res);
+        await activateBrowserWallet();
       } catch (error) {
         console.log("error in activateBrowserWallet", error);
         onOpen();
       }
+    } else {
+      setButtonInfo(button.CHANGE_NETWORK);
     }
-
     if (!chainId) {
       await checkNetwork();
     }
@@ -162,22 +173,26 @@ export default function ConnectButton({ handleOpenModal }: Props) {
 
       <Button
         onClick={handleConnectWallet}
-        bg="blue.800"
-        color="blue.300"
+        bg={`${buttonInfo.color}.800`}
+        color={`${buttonInfo.color}.300`}
         fontSize="lg"
         fontWeight="medium"
         borderRadius="xl"
         border="1px solid transparent"
         _hover={{
-          borderColor: "blue.700",
-          color: "blue.400",
+          borderColor: `${buttonInfo.color}.700`,
+          color: `${buttonInfo.color}.400`,
         }}
         _active={{
-          backgroundColor: "blue.800",
-          borderColor: "blue.700",
+          backgroundColor: `${buttonInfo.color}.800`,
+          borderColor: `${buttonInfo.color}.700`,
+        }}
+        _focus={{
+          backgroundColor: `${buttonInfo.color}.800`,
+          borderColor: `${buttonInfo.color}.700`,
         }}
       >
-        {!account ? "Connect wallet" : "Change Network"}
+        {buttonInfo.text}
       </Button>
     </>
   );

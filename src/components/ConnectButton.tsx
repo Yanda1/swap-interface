@@ -39,6 +39,19 @@ export default function ConnectButton({ handleOpenModal }: Props) {
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [buttonInfo, setButtonInfo] = useState(button.CONNECT_WALLET);
+  const [kycPassed, setKycPassed] = useState(false);
+  const [networkConnected, setNetworkConnected] = useState(false);
+  const [accountConnected, setAccountConnected] = useState(false);
+  const [userVerified, setUserVerified] = useState(false);
+
+  console.log({
+    userVerified,
+    accountConnected,
+    networkConnected,
+    kycPassed,
+    account,
+    chainId,
+  });
 
   async function checkNetwork() {
     const network_params = [
@@ -59,11 +72,7 @@ export default function ConnectButton({ handleOpenModal }: Props) {
       await switchNetwork(Moonbeam.chainId);
       if (chainId !== Moonbeam.chainId) {
         // @ts-ignore
-        const res = await library.send(
-          "wallet_addEthereumChain",
-          network_params
-        );
-        console.log(res);
+        await library.send("wallet_addEthereumChain", network_params);
       }
     }
   }
@@ -91,9 +100,19 @@ export default function ConnectButton({ handleOpenModal }: Props) {
       }
     };
     checkNetwork();
-  }, [chainId, account]);
 
-  return account && chainId ? (
+    if (chainId) setNetworkConnected(true);
+    if (account) setAccountConnected(true);
+    if (networkConnected && accountConnected && !kycPassed)
+      setButtonInfo(button.PASS_KYC);
+    if (!accountConnected) setButtonInfo(button.CONNECT_WALLET);
+    if (accountConnected && !chainId) setButtonInfo(button.CHANGE_NETWORK);
+    if (kycPassed && networkConnected && accountConnected) {
+      setUserVerified(true);
+    }
+  }, [chainId, account, kycPassed, networkConnected, accountConnected]);
+
+  return userVerified ? (
     <Box
       display="flex"
       alignItems="center"

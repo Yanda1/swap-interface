@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "author": "Yanda.io",
   "private": true,
+  "license": "SEE LICENSE IN SUB-PACKAGES",
   "dependencies": {
     "@chakra-ui/icons": "^1.0.14",
     "@chakra-ui/react": "^1.6.5",

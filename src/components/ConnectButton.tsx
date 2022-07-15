@@ -69,6 +69,10 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     }
   };
 
+  const handleKycPassed = async () => {
+    console.log('%c !!! START KYC PROCESS', 'color: orange');
+  };
+
   useEffect(() => {
     const handleCheckNetwork = async () => {
       if (!chainId) {
@@ -165,7 +169,9 @@ export default function ConnectButton({ handleOpenModal }: Props) {
       </Modal>
 
       <Button
-        onClick={handleConnectWallet}
+        onClick={
+          button.text === 'Pass KYC' ? handleKycPassed : handleConnectWallet
+        }
         bg={`${button.color}.800`}
         color={`${button.color}.300`}
         fontSize="lg"

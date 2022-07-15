@@ -10,27 +10,17 @@ import {
   ModalCloseButton,
   useDisclosure,
   Link,
-} from "@chakra-ui/react";
-import { useEthers, useEtherBalance, Moonbeam } from "@usedapp/core";
-import { formatEther } from "@ethersproject/units";
-import Identicon from "./Identicon";
-import { useEffect, useState } from "react";
-import { ethers } from "ethers";
+} from '@chakra-ui/react';
+import { useEthers, useEtherBalance, Moonbeam } from '@usedapp/core';
+import { formatEther } from '@ethersproject/units';
+import Identicon from './Identicon';
+import { useEffect } from 'react';
+import { ethers } from 'ethers';
+import { reducer, useAuth } from '../helpers/context';
+import type { Verification } from '../helpers/context';
 
 type Props = {
   handleOpenModal: any;
-};
-
-type ButtonType = {
-  CONNECT_WALLET: { color: string; text: string };
-  CHANGE_NETWORK: { color: string; text: string };
-  PASS_KYC: { color: string; text: string };
-};
-
-const button: ButtonType = {
-  CONNECT_WALLET: { color: "blue", text: "Connect Wallet" },
-  CHANGE_NETWORK: { color: "red", text: "Change Network" },
-  PASS_KYC: { color: "orange", text: "Pass KYC" },
 };
 
 export default function ConnectButton({ handleOpenModal }: Props) {
@@ -38,33 +28,21 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     useEthers();
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [buttonInfo, setButtonInfo] = useState(button.CONNECT_WALLET);
-  const [kycPassed, setKycPassed] = useState(false);
-  const [networkConnected, setNetworkConnected] = useState(false);
-  const [accountConnected, setAccountConnected] = useState(false);
-  const [userVerified, setUserVerified] = useState(false);
+  const { state, dispatch } = useAuth();
+  const { isUserVerified, button } = state;
 
-  console.log({
-    userVerified,
-    accountConnected,
-    networkConnected,
-    kycPassed,
-    account,
-    chainId,
-  });
-
-  async function checkNetwork() {
+  const checkNetwork = async () => {
     const network_params = [
       {
         chainId: ethers.utils.hexValue(Moonbeam.chainId),
         chainName: Moonbeam.chainName,
-        rpcUrls: ["https://rpc.api.moonbeam.network"],
+        rpcUrls: ['https://rpc.api.moonbeam.network'],
         nativeCurrency: {
-          name: "Glimer",
-          symbol: "GLMR",
+          name: 'Glimer',
+          symbol: 'GLMR',
           decimals: 18,
         },
-        blockExplorerUrls: ["https://moonscan.io/"],
+        blockExplorerUrls: ['https://moonscan.io/'],
       },
     ];
 
@@ -72,47 +50,43 @@ export default function ConnectButton({ handleOpenModal }: Props) {
       await switchNetwork(Moonbeam.chainId);
       if (chainId !== Moonbeam.chainId) {
         // @ts-ignore
-        await library.send("wallet_addEthereumChain", network_params);
+        await library.send('wallet_addEthereumChain', network_params);
       }
     }
-  }
+  };
 
-  async function handleConnectWallet() {
+  const handleConnectWallet = async () => {
     if (!account) {
       try {
         await activateBrowserWallet();
       } catch (error) {
-        console.log("error in activateBrowserWallet", error);
+        console.log('error in activateBrowserWallet', error);
         onOpen();
       }
-    } else {
-      setButtonInfo(button.CHANGE_NETWORK);
     }
     if (!chainId) {
       await checkNetwork();
     }
-  }
+  };
 
   useEffect(() => {
-    const checkNetwork = async () => {
+    const handleCheckNetwork = async () => {
       if (!chainId) {
         await checkNetwork();
       }
     };
-    checkNetwork();
+    handleCheckNetwork();
 
-    if (chainId) setNetworkConnected(true);
-    if (account) setAccountConnected(true);
-    if (networkConnected && accountConnected && !kycPassed)
-      setButtonInfo(button.PASS_KYC);
-    if (!accountConnected) setButtonInfo(button.CONNECT_WALLET);
-    if (accountConnected && !chainId) setButtonInfo(button.CHANGE_NETWORK);
-    if (kycPassed && networkConnected && accountConnected) {
-      setUserVerified(true);
-    }
-  }, [chainId, account, kycPassed, networkConnected, accountConnected]);
+    if (chainId) {
+      dispatch({ type: reducer.NETWORK, payload: true } as Verification);
+    } else dispatch({ type: reducer.NETWORK, payload: false } as Verification);
+    if (account) {
+      dispatch({ type: reducer.ACCOUNT, payload: true } as Verification);
+    } else dispatch({ type: reducer.ACCOUNT, payload: false } as Verification);
+    // eslint-disable-next-line
+  }, [chainId, account]);
 
-  return userVerified ? (
+  return isUserVerified ? (
     <Box
       display="flex"
       alignItems="center"
@@ -122,7 +96,7 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     >
       <Box px="3">
         <Text color="white" fontSize="md">
-          {etherBalance && parseFloat(formatEther(etherBalance)).toFixed(3)}{" "}
+          {etherBalance && parseFloat(formatEther(etherBalance)).toFixed(3)}{' '}
           GLMR
         </Text>
       </Box>
@@ -131,10 +105,10 @@ export default function ConnectButton({ handleOpenModal }: Props) {
         bg="gray.800"
         border="1px solid transparent"
         _hover={{
-          border: "1px",
-          borderStyle: "solid",
-          borderColor: "blue.400",
-          backgroundColor: "gray.700",
+          border: '1px',
+          borderStyle: 'solid',
+          borderColor: 'blue.400',
+          backgroundColor: 'gray.700',
         }}
         borderRadius="xl"
         m="1px"
@@ -169,13 +143,13 @@ export default function ConnectButton({ handleOpenModal }: Props) {
             color="white"
             fontSize="sm"
             _hover={{
-              color: "whiteAlpha.700",
+              color: 'whiteAlpha.700',
             }}
           />
           <ModalBody pt={0} px={4}>
             <Text color="white">
               In order to connect wallet, you should have it installed as a
-              browser extension. You can install it from{" "}
+              browser extension. You can install it from{' '}
               <Link
                 href='href={"https://metamask.io/"}'
                 isExternal
@@ -192,26 +166,26 @@ export default function ConnectButton({ handleOpenModal }: Props) {
 
       <Button
         onClick={handleConnectWallet}
-        bg={`${buttonInfo.color}.800`}
-        color={`${buttonInfo.color}.300`}
+        bg={`${button.color}.800`}
+        color={`${button.color}.300`}
         fontSize="lg"
         fontWeight="medium"
         borderRadius="xl"
         border="1px solid transparent"
         _hover={{
-          borderColor: `${buttonInfo.color}.700`,
-          color: `${buttonInfo.color}.400`,
+          borderColor: `${button.color}.700`,
+          color: `${button.color}.400`,
         }}
         _active={{
-          backgroundColor: `${buttonInfo.color}.800`,
-          borderColor: `${buttonInfo.color}.700`,
+          backgroundColor: `${button.color}.800`,
+          borderColor: `${button.color}.700`,
         }}
         _focus={{
-          backgroundColor: `${buttonInfo.color}.800`,
-          borderColor: `${buttonInfo.color}.700`,
+          backgroundColor: `${button.color}.800`,
+          borderColor: `${button.color}.700`,
         }}
       >
-        {buttonInfo.text}
+        {button.text}
       </Button>
     </>
   );

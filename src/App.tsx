@@ -12,8 +12,8 @@ function App() {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   return (
-    <AuthProvider>
-      <ChakraProvider theme={theme}>
+    <ChakraProvider theme={theme}>
+      <AuthProvider>
         <TopMenuLayout>
           <ConnectButton handleOpenModal={onOpen} />
           <AccountModal isOpen={isOpen} onClose={onClose} />
@@ -22,8 +22,8 @@ function App() {
         <ContentLayout>
           <SwapForm />
         </ContentLayout>
-      </ChakraProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ChakraProvider>
   );
 }
 

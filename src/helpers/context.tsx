@@ -1,47 +1,92 @@
-import { createContext, useReducer, useContext } from 'react';
+import React, {
+  createContext,
+  useReducer,
+  useContext,
+  ReactNode,
+  useEffect,
+} from 'react';
 
-type Action = {
-  type:
-    | 'SET_ACCOUNT_CONNECTED'
-    | 'SET_NETWORK_CONNECTED'
-    | 'SET_KYC_CONNECTED'
-    | 'SET_USER_CONNECTED';
+enum VerificationEnum {
+  ACCOUNT = 'SET_ACCOUNT_CONNECTED',
+  NETWORK = 'SET_NETWORK_CONNECTED',
+  KYC = 'SET_KYC_PASSED',
+  USER = 'SET_USER_VERIFIED',
+}
+
+enum ButtonEnum {
+  BUTTON = 'SET_BUTTON_STATE',
+}
+export interface Verification {
+  type: VerificationEnum;
   payload: boolean;
-};
-type Dispatch = (action: Action) => void;
+}
+interface Button {
+  type: ButtonEnum;
+  payload: { color: string; text: string };
+}
+
+type Action = Verification | Button;
+
 type State = {
   isUserVerified: boolean;
   isAccountConnected: boolean;
   isNetworkConnected: boolean;
   isKycPassed: boolean;
+  button: { color: string; text: string };
 };
-type CountProviderProps = { children: React.ReactNode };
+
+type ButtonType = {
+  CONNECT_WALLET: { color: string; text: string };
+  CHANGE_NETWORK: { color: string; text: string };
+  PASS_KYC: { color: string; text: string };
+};
+
+const buttonState: ButtonType = {
+  CONNECT_WALLET: { color: 'blue', text: 'Connect Wallet' },
+  CHANGE_NETWORK: { color: 'red', text: 'Change Network' },
+  PASS_KYC: { color: 'orange', text: 'Pass KYC' },
+};
+
+const initialState: State = {
+  isUserVerified: false,
+  isAccountConnected: false,
+  isNetworkConnected: false,
+  isKycPassed: false,
+  button: buttonState.CONNECT_WALLET,
+};
+
 type Reducer = {
   ACCOUNT: string;
   NETWORK: string;
   KYC: string;
   USER: string;
+  BUTTON: string;
 };
 
-const reducer: Reducer = {
+export const reducer: Reducer = {
   ACCOUNT: 'SET_ACCOUNT_CONNECTED',
   NETWORK: 'SET_NETWORK_CONNECTED',
   KYC: 'SET_KYC_PASSED',
   USER: 'SET_USER_VERIFIED',
+  BUTTON: 'SET_BUTTON_STATE',
 };
+
+type Dispatch = (action: Action) => void;
 
 const AuthContext = createContext<
   { state: State; dispatch: Dispatch } | undefined
 >(undefined);
 
-const authReducer = (state: State, action: Action) => {
+const authReducer = (state: any, action: any) => {
   switch (action.type) {
     case reducer.ACCOUNT:
-      return { ...state, accountConnected: action.payload };
+      return { ...state, isAccountConnected: action.payload };
     case reducer.NETWORK:
-      return { ...state, networkConnected: action.payload };
+      return { ...state, isNetworkConnected: action.payload };
     case reducer.KYC:
-      return { ...state, kycPassed: action.payload };
+      return { ...state, isKycPassed: action.payload };
+    case reducer.BUTTON:
+      return { ...state, button: action.payload };
     case reducer.USER:
       return { ...state, isUserVerified: action.payload };
     default:
@@ -49,14 +94,39 @@ const authReducer = (state: State, action: Action) => {
   }
 };
 
-export const AuthProvider = (children: CountProviderProps) => {
-  const [state, dispatch] = useReducer(authReducer, {
-    isUserVerified: false,
-    isAccountConnected: false,
-    isNetworkConnected: false,
-    isKycPassed: false,
-  });
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [state, dispatch] = useReducer(authReducer, initialState);
   const value = { state, dispatch };
+  const { isAccountConnected, isNetworkConnected, isKycPassed } = state;
+
+  useEffect(() => {
+    if (isKycPassed && isNetworkConnected && isAccountConnected) {
+      dispatch({ type: reducer.USER, payload: true });
+    }
+    if (!isKycPassed || !isNetworkConnected || !isAccountConnected) {
+      dispatch({ type: reducer.USER, payload: false });
+    }
+    if (!isAccountConnected) {
+      dispatch({
+        type: reducer.BUTTON,
+        payload: buttonState.CONNECT_WALLET,
+      });
+    }
+    if (!isNetworkConnected) {
+      dispatch({
+        type: reducer.BUTTON,
+        payload: buttonState.CHANGE_NETWORK,
+      });
+    }
+    if (!isKycPassed && isNetworkConnected && isAccountConnected) {
+      dispatch({
+        type: reducer.BUTTON,
+        payload: buttonState.PASS_KYC,
+      });
+    }
+  }, [isAccountConnected, isNetworkConnected, isKycPassed]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

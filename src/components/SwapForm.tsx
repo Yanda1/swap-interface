@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useRef, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useAuth } from '../helpers/context';
 import {
   FormErrorMessage,
   FormLabel,
@@ -14,22 +15,20 @@ import {
   Text,
   useRadioGroup,
   useDisclosure,
-} from "@chakra-ui/react";
-import { useEthers } from "@usedapp/core";
-import RadioCard from "./RadioCard";
-import CurrenciesModal from "./CurrenciesModal";
-import SwapButton from "./SwapButton";
-const availableCoins = require("../availableCoins.json");
+} from '@chakra-ui/react';
+import RadioCard from './RadioCard';
+import CurrenciesModal from './CurrenciesModal';
+import SwapButton from './SwapButton';
+const availableCoins = require('../availableCoins.json');
+
 export default function SwapForm() {
   const {
     handleSubmit,
     register,
     formState: { errors, isSubmitting },
   } = useForm();
-  const { chainId } = useEthers();
-  // State vars declaration
   const [estimatedResult, setEstimatedResult] = useState(0);
-  const [destCurrency, setDestCurrency] = useState("BTC");
+  const [destCurrency, setDestCurrency] = useState('BTC');
   const [availableNetworks, setAvailableNetworks] = useState(
     getAssetNetworks(destCurrency)
   );
@@ -40,16 +39,18 @@ export default function SwapForm() {
   } = useRadioGroup({
     onChange: onChangeDestNetwork,
   });
-  const startCurrency = "GLMR";
+  const startCurrency = 'GLMR';
 
   const group = getRootProps();
   const [amount, setAmount] = useState(0);
-  const [destAddress, setDestAddress] = useState("");
-  const [tag, setTag] = useState("");
+  const [destAddress, setDestAddress] = useState('');
+  const [tag, setTag] = useState('');
 
   const { isOpen, onOpen: showChangeCurrency, onClose } = useDisclosure();
   const swapButtonRef = useRef();
   const [currentPrice, setCurrentPrice] = useState(0);
+  const { state } = useAuth();
+  const { isUserVerified, button } = state;
 
   useEffect(() => {
     fetch(
@@ -72,10 +73,10 @@ export default function SwapForm() {
   }
 
   function onChangeDestNetwork(value: any) {
-    console.log("Network", value);
+    console.log('Network', value);
   }
   function onCurrencySelected(value: any) {
-    console.log("onCurrencySelected", value);
+    console.log('onCurrencySelected', value);
     const networks = getAssetNetworks(value);
     setAvailableNetworks(networks);
     console.log(availableNetworks);
@@ -83,10 +84,10 @@ export default function SwapForm() {
   }
 
   async function onSubmit(values: any) {
-    console.log("Form values:", values);
+    console.log('Form values:', values);
 
-    setDestAddress(values["destAddr"]);
-    setTag(values["tag"]);
+    setDestAddress(values['destAddr']);
+    setTag(values['tag']);
 
     // @ts-ignore
     swapButtonRef.current.onSubmit();
@@ -94,9 +95,9 @@ export default function SwapForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <FormControl
-        maxW={"20rem"}
+        maxW={'20rem'}
         isInvalid={errors.amount || errors.destAddr || errors.tag}
-        color={"white"}
+        color={'white'}
       >
         <FormLabel htmlFor="amount">Amount to SWAP</FormLabel>
         <NumberInput
@@ -106,13 +107,13 @@ export default function SwapForm() {
           min={18}
         >
           <NumberInputField
-            {...register("amount", {
-              required: "This is required",
-              min: { value: 0, message: "Value should be grater than 0" },
+            {...register('amount', {
+              required: 'This is required',
+              min: { value: 0, message: 'Value should be grater than 0' },
             })}
           />
           <InputRightElement width="4.5rem">
-            <Button h="1.75rem" size="sm" color={"black"}>
+            <Button h="1.75rem" size="sm" color={'black'}>
               GLMR
             </Button>
           </InputRightElement>
@@ -132,7 +133,7 @@ export default function SwapForm() {
             <Button
               h="1.75rem"
               size="sm"
-              color={"black"}
+              color={'black'}
               onClick={showChangeCurrency}
             >
               {destCurrency}
@@ -169,8 +170,8 @@ export default function SwapForm() {
           id="destAddr"
           placeholder="0x..."
           isInvalid={errors.destAddr}
-          {...register("destAddr", {
-            required: "This is required",
+          {...register('destAddr', {
+            required: 'This is required',
           })}
         />
         <FormErrorMessage>
@@ -181,14 +182,14 @@ export default function SwapForm() {
         ) ? (
           <>
             <FormLabel mt="20px" htmlFor="tag">
-              Memo:{" "}
+              Memo:{' '}
             </FormLabel>
             <Input
               id="tag"
               placeholder="Address memo..."
               isInvalid={errors.tag}
-              {...register("tag", {
-                required: "This is required",
+              {...register('tag', {
+                required: 'This is required',
               })}
             />
             <FormErrorMessage>
@@ -197,7 +198,7 @@ export default function SwapForm() {
           </>
         ) : null}
       </FormControl>
-      {chainId ? (
+      {isUserVerified ? (
         <SwapButton
           ref={swapButtonRef}
           amount={amount}
@@ -209,15 +210,9 @@ export default function SwapForm() {
         />
       ) : (
         <Text fontSize="lg" fontWeight="bold" color="red.400" mt={5}>
-          Please Change Network
+          {button.text}
         </Text>
       )}
-      {/* { errorMessage &&
-        <>
-        <p>{createStatus}</p>
-        <p>{errorMessage}</p>
-        </>
-      } */}
     </form>
   );
 }

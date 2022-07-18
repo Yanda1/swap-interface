@@ -14,10 +14,10 @@ import {
 import { useEthers, useEtherBalance, Moonbeam } from '@usedapp/core';
 import { formatEther } from '@ethersproject/units';
 import Identicon from './Identicon';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { reducer, useAuth } from '../helpers/context';
-import type { Verification } from '../helpers/context';
+import { useAuth, buttonInfo } from '../helpers/context';
+import { VerificationEnum } from '../helpers/context';
 
 type Props = {
   handleOpenModal: any;
@@ -28,8 +28,11 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     useEthers();
   const etherBalance = useEtherBalance(account);
   const { isOpen, onOpen, onClose } = useDisclosure();
+
   const { state, dispatch } = useAuth();
   const { isUserVerified, button } = state;
+
+  const [kycScriptLoaded, setKycScriptLoaded] = useState(false);
 
   const checkNetwork = async () => {
     const network_params = [
@@ -69,11 +72,48 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     }
   };
 
-  const handleKycPassed = async () => {
-    console.log('%c !!! START KYC PROCESS', 'color: orange');
+  const loadBinanceKycScript = (cb?: any) => {
+    const existingId = document.getElementById('binance-kcy-script');
+
+    if (!existingId) {
+      const binanceSdkScript = document.createElement('script');
+      binanceSdkScript.src =
+        'https://static.saasexch.com/static/binance/static/kyc-ui/sdk/0.0.2/sdk.js';
+      binanceSdkScript.id = 'binance-kcy-script';
+      document.body.appendChild(binanceSdkScript);
+
+      binanceSdkScript.onload = () => {
+        if (cb) cb();
+      };
+    }
+
+    if (existingId && cb) cb();
+  };
+
+  const handleKycPassed = () => {
+    if (kycScriptLoaded) {
+      console.log('here');
+      // if (BinanceKyc) {
+      //   const binanceKyc = new BinanceKyc({
+      //     authToken: 'adsfdsff', // has to be updated with the correct token
+      //     bizEntityKey: 'YANDA', // has to be an ENV variable
+      //     apiHost: 'https://api.commonservice.io', // has to be an ENV variable
+      //     // closeCallback: (args) => { window.alert('KYC finished, args:', args) },
+      //     onMessage: ({ typeCode }: any) => {
+      //       if (typeCode === '102') {
+      //         binanceKyc.switchVisible(true);
+      //       }
+      //     },
+      //   });
+      // }
+    }
   };
 
   useEffect(() => {
+    loadBinanceKycScript(() => {
+      setKycScriptLoaded(true);
+    });
+
     const handleCheckNetwork = async () => {
       if (!chainId) {
         await checkNetwork();
@@ -82,11 +122,11 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     handleCheckNetwork();
 
     if (chainId) {
-      dispatch({ type: reducer.NETWORK, payload: true } as Verification);
-    } else dispatch({ type: reducer.NETWORK, payload: false } as Verification);
+      dispatch({ type: VerificationEnum.NETWORK, payload: true });
+    } else dispatch({ type: VerificationEnum.NETWORK, payload: false });
     if (account) {
-      dispatch({ type: reducer.ACCOUNT, payload: true } as Verification);
-    } else dispatch({ type: reducer.ACCOUNT, payload: false } as Verification);
+      dispatch({ type: VerificationEnum.ACCOUNT, payload: true });
+    } else dispatch({ type: VerificationEnum.ACCOUNT, payload: false });
     // eslint-disable-next-line
   }, [chainId, account]);
 
@@ -169,8 +209,11 @@ export default function ConnectButton({ handleOpenModal }: Props) {
       </Modal>
 
       <Button
+        id="kyc_button"
         onClick={
-          button.text === 'Pass KYC' ? handleKycPassed : handleConnectWallet
+          button.text === buttonInfo.PASS_KYC
+            ? handleKycPassed
+            : handleConnectWallet
         }
         bg={`${button.color}.800`}
         color={`${button.color}.300`}

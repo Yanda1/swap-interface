@@ -140,7 +140,16 @@ const SwapButton = forwardRef(
         //   // 'tag': '',
         // });
 
-        const namedValues = {
+        type NamedValues = {
+          scoin: string;
+          samt: string;
+          fcoin: string;
+          net: string | number;
+          daddr: string;
+          tag: string;
+        };
+
+        const namedValues: NamedValues = {
           scoin: 'GLMR',
           samt: utils.parseEther(amount.toString()).toString(),
           fcoin: destCurrency,

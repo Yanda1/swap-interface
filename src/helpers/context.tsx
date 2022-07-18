@@ -6,7 +6,7 @@ import React, {
   useEffect,
 } from 'react';
 
-enum VerificationEnum {
+export enum VerificationEnum {
   ACCOUNT = 'SET_ACCOUNT_CONNECTED',
   NETWORK = 'SET_NETWORK_CONNECTED',
   KYC = 'SET_KYC_PASSED',
@@ -16,14 +16,16 @@ enum VerificationEnum {
 enum ButtonEnum {
   BUTTON = 'SET_BUTTON_STATE',
 }
-export interface Verification {
+
+type Verification = {
   type: VerificationEnum;
   payload: boolean;
-}
-interface Button {
+};
+
+type Button = {
   type: ButtonEnum;
   payload: { color: string; text: string };
-}
+};
 
 type Action = Verification | Button;
 
@@ -41,10 +43,16 @@ type ButtonType = {
   PASS_KYC: { color: string; text: string };
 };
 
-const buttonState: ButtonType = {
-  CONNECT_WALLET: { color: 'blue', text: 'Connect Wallet' },
-  CHANGE_NETWORK: { color: 'red', text: 'Change Network' },
-  PASS_KYC: { color: 'orange', text: 'Pass KYC' },
+export const buttonInfo = {
+  CONNECT_WALLET: 'Connect Wallet',
+  CHANGE_NETWORK: 'Change Network',
+  PASS_KYC: 'Pass KYC',
+};
+
+const button: ButtonType = {
+  CONNECT_WALLET: { color: 'blue', text: buttonInfo.CONNECT_WALLET },
+  CHANGE_NETWORK: { color: 'red', text: buttonInfo.CHANGE_NETWORK },
+  PASS_KYC: { color: 'orange', text: buttonInfo.PASS_KYC },
 };
 
 const initialState: State = {
@@ -52,23 +60,7 @@ const initialState: State = {
   isAccountConnected: false,
   isNetworkConnected: false,
   isKycPassed: false,
-  button: buttonState.CONNECT_WALLET,
-};
-
-type Reducer = {
-  ACCOUNT: string;
-  NETWORK: string;
-  KYC: string;
-  USER: string;
-  BUTTON: string;
-};
-
-export const reducer: Reducer = {
-  ACCOUNT: 'SET_ACCOUNT_CONNECTED',
-  NETWORK: 'SET_NETWORK_CONNECTED',
-  KYC: 'SET_KYC_PASSED',
-  USER: 'SET_USER_VERIFIED',
-  BUTTON: 'SET_BUTTON_STATE',
+  button: button.CONNECT_WALLET,
 };
 
 type Dispatch = (action: Action) => void;
@@ -77,20 +69,21 @@ const AuthContext = createContext<
   { state: State; dispatch: Dispatch } | undefined
 >(undefined);
 
-const authReducer = (state: any, action: any) => {
+const authReducer = (state: State, action: Action): State => {
   switch (action.type) {
-    case reducer.ACCOUNT:
+    case VerificationEnum.ACCOUNT:
       return { ...state, isAccountConnected: action.payload };
-    case reducer.NETWORK:
+    case VerificationEnum.NETWORK:
       return { ...state, isNetworkConnected: action.payload };
-    case reducer.KYC:
+    case VerificationEnum.KYC:
       return { ...state, isKycPassed: action.payload };
-    case reducer.BUTTON:
+    case ButtonEnum.BUTTON:
       return { ...state, button: action.payload };
-    case reducer.USER:
+    case VerificationEnum.USER:
       return { ...state, isUserVerified: action.payload };
     default:
-      throw new Error(`Unhandled action type ${action.type}`);
+      return state;
+    // throw new Error(`Unhandled action type ${action.type}`);
   }
 };
 
@@ -103,27 +96,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   useEffect(() => {
     if (isKycPassed && isNetworkConnected && isAccountConnected) {
-      dispatch({ type: reducer.USER, payload: true });
+      dispatch({ type: VerificationEnum.USER, payload: true });
     }
     if (!isKycPassed || !isNetworkConnected || !isAccountConnected) {
-      dispatch({ type: reducer.USER, payload: false });
+      dispatch({ type: VerificationEnum.USER, payload: false });
     }
     if (!isAccountConnected) {
       dispatch({
-        type: reducer.BUTTON,
-        payload: buttonState.CONNECT_WALLET,
+        type: ButtonEnum.BUTTON,
+        payload: button.CONNECT_WALLET,
       });
     }
     if (!isNetworkConnected) {
       dispatch({
-        type: reducer.BUTTON,
-        payload: buttonState.CHANGE_NETWORK,
+        type: ButtonEnum.BUTTON,
+        payload: button.CHANGE_NETWORK,
       });
     }
     if (!isKycPassed && isNetworkConnected && isAccountConnected) {
       dispatch({
-        type: reducer.BUTTON,
-        payload: buttonState.PASS_KYC,
+        type: ButtonEnum.BUTTON,
+        payload: button.PASS_KYC,
       });
     }
   }, [isAccountConnected, isNetworkConnected, isKycPassed]);

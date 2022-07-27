@@ -16,14 +16,28 @@ import { formatEther } from '@ethersproject/units';
 import Identicon from './Identicon';
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { useAuth, buttonInfo } from '../helpers/context';
-import { VerificationEnum } from '../helpers/context';
+import { useAuth, buttonInfo, KycEnum } from '../helpers/context';
+import { VerificationEnum, KycStatusEnum } from '../helpers/context';
+import {
+  apiCall,
+  BASE_URL,
+  BINANCE_DEV_URL,
+  BINANCE_SCRIPT,
+  getMetamaskMessage,
+  MOONBEAM_URL,
+} from '../helpers/axios';
 
 type Props = {
   handleOpenModal: any;
 };
 
-export default function ConnectButton({ handleOpenModal }: Props) {
+
+// check if button status and kyc logic can be put into local storage
+// toast if something went wrong
+// hook for API calls
+// outsource logic from this component
+
+const ConnectButton = ({ handleOpenModal }: Props) => {
   const { activateBrowserWallet, library, account, chainId, switchNetwork } =
     useEthers();
   const etherBalance = useEtherBalance(account);
@@ -33,13 +47,14 @@ export default function ConnectButton({ handleOpenModal }: Props) {
   const { isUserVerified, button } = state;
 
   const [kycScriptLoaded, setKycScriptLoaded] = useState(false);
+  const [kycToken, setKycToken] = useState('');
 
   const checkNetwork = async () => {
     const network_params = [
       {
         chainId: ethers.utils.hexValue(Moonbeam.chainId),
         chainName: Moonbeam.chainName,
-        rpcUrls: ['https://rpc.api.moonbeam.network'],
+        rpcUrls: [MOONBEAM_URL],
         nativeCurrency: {
           name: 'Glimer',
           symbol: 'GLMR',
@@ -77,8 +92,7 @@ export default function ConnectButton({ handleOpenModal }: Props) {
 
     if (!existingId) {
       const binanceSdkScript = document.createElement('script');
-      binanceSdkScript.src =
-        'https://static.saasexch.com/static/binance/static/kyc-ui/sdk/0.0.2/sdk.js';
+      binanceSdkScript.src = BINANCE_SCRIPT;
       binanceSdkScript.id = 'binance-kcy-script';
       document.body.appendChild(binanceSdkScript);
 
@@ -90,22 +104,150 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     if (existingId && cb) cb();
   };
 
-  const handleKycPassed = () => {
-    if (kycScriptLoaded) {
-      console.log('here');
-      // if (BinanceKyc) {
-      //   const binanceKyc = new BinanceKyc({
-      //     authToken: 'adsfdsff', // has to be updated with the correct token
-      //     bizEntityKey: 'YANDA', // has to be an ENV variable
-      //     apiHost: 'https://api.commonservice.io', // has to be an ENV variable
-      //     // closeCallback: (args) => { window.alert('KYC finished, args:', args) },
-      //     onMessage: ({ typeCode }: any) => {
-      //       if (typeCode === '102') {
-      //         binanceKyc.switchVisible(true);
-      //       }
-      //     },
-      //   });
-      // }
+  const getAuthToken = () => {
+    const LOCAL_STORAGE_AUTH = 'kyc-tokens';
+    fetch(`${BASE_URL}${apiCall.getNonce}${account}`)
+      .then((res: any) => res.json())
+      .then((res: any) => {
+        const msg = getMetamaskMessage(res.nonce);
+        library?.send('personal_sign', [account, msg]).then((res: any) => {
+          fetch(`${BASE_URL}${apiCall.auth}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ address: account, signature: res }),
+          })
+            .then((res: any) => res.json())
+            .then((res: any) => {
+              localStorage.setItem(
+                LOCAL_STORAGE_AUTH,
+                JSON.stringify({ access: res.access, refresh: res.refresh })
+              );
+              fetch(`${BASE_URL}${apiCall.kycToken}`, {
+                headers: {
+                  Authorization: `Bearer ${res.access}`,
+                  // store token in localStorage && kycStatus
+                  // implement logic for access token
+                  // error handling (atm only happy path)
+                  // URL: https://finandy.com/en/auth => redirect from this URL in DEV
+                },
+              })
+                .then((res: any) => res.json())
+                .then((res: any) => setKycToken(res.token))
+                .catch((err: any) =>
+                  console.log(
+                    '%c EROR IN LIBRARY CALL FOR KYC TOKEN',
+                    'color: red; font-size: 16px;',
+                    err
+                  )
+                );
+            })
+            .catch((err: any) =>
+              console.log(
+                '%c EROR IN LIBRARY CALL FOR ACCESS TOKEN',
+                'color: red; font-size: 16px;',
+                err
+              )
+            );
+        });
+      })
+      .catch((err: any) =>
+        console.log(
+          '%c EROR IN NONCE CALL',
+          'color: red; font-size: 16px;',
+          err
+        )
+      );
+  };
+
+  const handleKycPassed = (e: any) => {
+    e.preventDefault();
+    const LOCAL_STORAGE_AUTH = 'kyc-tokens';
+    const authTokenFromLocalStorage = JSON.parse(
+      localStorage.getItem(LOCAL_STORAGE_AUTH) as string
+    ); // check format => returns 'invalid crypto pattern'
+    if (authTokenFromLocalStorage) {
+      fetch(`${BASE_URL}${apiCall.kycStatus}`, {
+        headers: {
+          Authorization: `Bearer ${authTokenFromLocalStorage.access}`,
+        },
+      })
+        .then((res: any) => res.json())
+        .then((res: any) => {
+          if (res.message === 'Access token has expired') {
+            fetch(`${BASE_URL}${apiCall.refresh}`, {
+              method: 'POST',
+              headers: {
+                'Cross-Origin-Request-Method': 'POST',
+                Authorization: `Bearer ${authTokenFromLocalStorage.refresh}`,
+              },
+            })
+              .then((res: any) => res.json())
+              .then((res: any) => {
+                if (res.access) {
+                  localStorage.setItem(
+                    LOCAL_STORAGE_AUTH,
+                    JSON.stringify({ access: res.access, refresh: res.refresh })
+                  );
+                  fetch(`${BASE_URL}${apiCall.kycStatus}`, {
+                    headers: {
+                      Authorization: `Bearer ${authTokenFromLocalStorage.access}`,
+                    },
+                  })
+                    .then((res: any) => res.json())
+                    .then((res: any) => {
+                      console.log('res', res);
+                      dispatch({
+                        type: KycEnum.STATUS,
+                        payload: res.levelInfo.currentLevel.kycStatus,
+                      });
+                      if (res.levelInfo.currentLevel.kycStatus) {
+                        localStorage.setItem(
+                          LOCAL_STORAGE_AUTH,
+                          JSON.stringify({
+                            ...authTokenFromLocalStorage,
+                            kycStatus: 'PASS',
+                          })
+                        );
+                      }
+                    })
+                    .catch((err: any) =>
+                      console.log(
+                        '%c ERROR IN KYC STATUS CALL AFTER REFRESH TOKEN RECEIVED',
+                        'color: red; font-size: 16px;',
+                        err
+                      )
+                    );
+                } else {
+                  getAuthToken();
+                }
+              });
+          } else {
+            dispatch({
+              type: KycEnum.STATUS,
+              payload: res.levelInfo.currentLevel.kycStatus,
+            });
+            if (res.levelInfo.currentLevel.kycStatus) {
+              localStorage.setItem(
+                LOCAL_STORAGE_AUTH,
+                JSON.stringify({
+                  ...authTokenFromLocalStorage,
+                  kycStatus: 'PASS',
+                })
+              );
+            }
+          }
+        })
+        .catch((err: any) =>
+          console.log(
+            '%c EROR IN LIBRARY CALL FOR KYC STATUS',
+            'color: red; font-size: 16px;',
+            err
+          )
+        );
+    } else {
+      getAuthToken();
     }
   };
 
@@ -113,6 +255,37 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     loadBinanceKycScript(() => {
       setKycScriptLoaded(true);
     });
+
+    const localStorageRes = JSON.parse(
+      localStorage.getItem('kyc-tokens') as string
+    );
+
+    if (localStorageRes && localStorageRes.kycStatus === KycStatusEnum.PASS) {
+      dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.PASS });
+    }
+
+    if (kycScriptLoaded && kycToken) {
+      console.log(
+        '%c in binance call',
+        'color: green; font-size: 20px',
+        kycToken
+      );
+      // if (BinanceKyc) {
+      // @ts-ignore
+      const binanceKyc = new BinanceKyc({
+        authToken: kycToken, // has to be updated with the correct token
+        bizEntityKey: 'YANDA', // has to be an ENV variable
+        apiHost: BINANCE_DEV_URL, // has to be an ENV variable AND different for PROD and DEV
+        // closeCallback: (args) => { window.alert('KYC finished, args:', args) },
+        onMessage: ({ typeCode }: any) => {
+          if (typeCode === '102') {
+            console.log('%c typeCode', 'font-size: 20px', typeCode);
+            binanceKyc.switchVisible(true);
+          }
+        },
+      });
+      // }
+    }
 
     const handleCheckNetwork = async () => {
       if (!chainId) {
@@ -128,7 +301,7 @@ export default function ConnectButton({ handleOpenModal }: Props) {
       dispatch({ type: VerificationEnum.ACCOUNT, payload: true });
     } else dispatch({ type: VerificationEnum.ACCOUNT, payload: false });
     // eslint-disable-next-line
-  }, [chainId, account]);
+  }, [chainId, account, kycToken]);
 
   return isUserVerified ? (
     <Box
@@ -239,3 +412,5 @@ export default function ConnectButton({ handleOpenModal }: Props) {
     </>
   );
 }
+
+export default ConnectButton;

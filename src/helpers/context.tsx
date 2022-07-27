@@ -9,8 +9,18 @@ import React, {
 export enum VerificationEnum {
   ACCOUNT = 'SET_ACCOUNT_CONNECTED',
   NETWORK = 'SET_NETWORK_CONNECTED',
-  KYC = 'SET_KYC_PASSED',
   USER = 'SET_USER_VERIFIED',
+}
+
+export enum KycEnum {
+  STATUS = 'SET_KYC_STATUS',
+}
+
+export enum KycStatusEnum {
+  INITIAL = 'INITIAL',
+  PENDING = 'PENDING',
+  PASS = 'PASS',
+  REJECTED = 'REJECTED',
 }
 
 enum ButtonEnum {
@@ -22,18 +32,23 @@ type Verification = {
   payload: boolean;
 };
 
+type KycStatus = {
+  type: KycEnum;
+  payload: KycStatusEnum; // check all of them
+};
+
 type Button = {
   type: ButtonEnum;
   payload: { color: string; text: string };
 };
 
-type Action = Verification | Button;
+type Action = Verification | Button | KycStatus;
 
 type State = {
   isUserVerified: boolean;
   isAccountConnected: boolean;
   isNetworkConnected: boolean;
-  isKycPassed: boolean;
+  kycStatus: KycStatusEnum;
   button: { color: string; text: string };
 };
 
@@ -47,6 +62,7 @@ export const buttonInfo = {
   CONNECT_WALLET: 'Connect Wallet',
   CHANGE_NETWORK: 'Change Network',
   PASS_KYC: 'Pass KYC',
+  CHECK_KYC: 'Check KYC',
 };
 
 const button: ButtonType = {
@@ -59,7 +75,7 @@ const initialState: State = {
   isUserVerified: false,
   isAccountConnected: false,
   isNetworkConnected: false,
-  isKycPassed: false,
+  kycStatus: KycStatusEnum.INITIAL,
   button: button.CONNECT_WALLET,
 };
 
@@ -75,8 +91,8 @@ const authReducer = (state: State, action: Action): State => {
       return { ...state, isAccountConnected: action.payload };
     case VerificationEnum.NETWORK:
       return { ...state, isNetworkConnected: action.payload };
-    case VerificationEnum.KYC:
-      return { ...state, isKycPassed: action.payload };
+    case KycEnum.STATUS:
+      return { ...state, kycStatus: action.payload };
     case ButtonEnum.BUTTON:
       return { ...state, button: action.payload };
     case VerificationEnum.USER:
@@ -92,13 +108,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const value = { state, dispatch };
-  const { isAccountConnected, isNetworkConnected, isKycPassed } = state;
+  const { isAccountConnected, isNetworkConnected, kycStatus } = state;
 
   useEffect(() => {
-    if (isKycPassed && isNetworkConnected && isAccountConnected) {
+    if (
+      kycStatus === KycStatusEnum.PASS &&
+      isNetworkConnected &&
+      isAccountConnected
+    ) {
       dispatch({ type: VerificationEnum.USER, payload: true });
     }
-    if (!isKycPassed || !isNetworkConnected || !isAccountConnected) {
+    if (
+      kycStatus !== KycStatusEnum.PASS ||
+      !isNetworkConnected ||
+      !isAccountConnected
+    ) {
       dispatch({ type: VerificationEnum.USER, payload: false });
     }
     if (!isAccountConnected) {
@@ -113,13 +137,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         payload: button.CHANGE_NETWORK,
       });
     }
-    if (!isKycPassed && isNetworkConnected && isAccountConnected) {
+    if (
+      kycStatus !== KycStatusEnum.PASS &&
+      isNetworkConnected &&
+      isAccountConnected
+    ) {
       dispatch({
         type: ButtonEnum.BUTTON,
         payload: button.PASS_KYC,
       });
     }
-  }, [isAccountConnected, isNetworkConnected, isKycPassed]);
+  }, [isAccountConnected, isNetworkConnected, kycStatus]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

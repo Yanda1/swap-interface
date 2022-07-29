@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '../helpers/context';
+import { useStore } from '../helpers/context';
 import {
   FormErrorMessage,
   FormLabel,
@@ -49,7 +49,7 @@ export default function SwapForm() {
   const { isOpen, onOpen: showChangeCurrency, onClose } = useDisclosure();
   const swapButtonRef = useRef();
   const [currentPrice, setCurrentPrice] = useState(0);
-  const { state } = useAuth();
+  const { state } = useStore();
   const { isUserVerified, button } = state;
 
   useEffect(() => {

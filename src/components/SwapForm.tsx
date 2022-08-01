@@ -92,7 +92,7 @@ export default function SwapForm() {
 		<form onSubmit={handleSubmit(onSubmit)}>
 			<FormControl
 				maxW={'20rem'}
-				isInvalid={(errors.amount || errors.destAddr || errors.tag) as any}
+				isInvalid={Boolean(errors.amount || errors.destAddr || errors.tag)}
 				color={'white'}
 			>
 				<FormLabel htmlFor='amount'>Amount to SWAP</FormLabel>

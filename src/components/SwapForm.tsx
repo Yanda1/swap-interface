@@ -99,7 +99,7 @@ export default function SwapForm() {
 				<NumberInput
 					id='amount'
 					onChange={(value: any) => setAmount(value)}
-					isInvalid={errors.amount}
+					isInvalid={Boolean(errors.amount)}
 					min={18}
 				>
 					<NumberInputField
@@ -155,7 +155,7 @@ export default function SwapForm() {
 				<Input
 					id='destAddr'
 					placeholder='0x...'
-					isInvalid={errors.destAddr}
+					isInvalid={Boolean(errors.destAddr)}
 					{...register('destAddr', {
 						required: 'This is required',
 					})}
@@ -169,7 +169,7 @@ export default function SwapForm() {
 						<Input
 							id='tag'
 							placeholder='Address memo...'
-							isInvalid={errors.tag}
+							isInvalid={Boolean(errors.tag)}
 							{...register('tag', {
 								required: 'This is required',
 							})}

@@ -12,13 +12,15 @@ export enum KycEnum {
 
 export enum KycStatusEnum {
 	INITIAL = 'INITIAL',
-	PENDING = 'PENDING',
+	SKIP = 'SKIP',
+	REVIEW = 'REVIEW',
+	PROCESS = 'PROCESS',
 	PASS = 'PASS',
 	REJECTED = 'REJECTED',
 }
 
 export enum ButtonEnum {
-	BUTTON = 'SET_BUTTON_STATE',
+	BUTTON = 'SET_BUTTON_STATUS',
 }
 
 type Verification = {
@@ -43,36 +45,40 @@ type State = {
 	isAccountConnected: boolean;
 	isNetworkConnected: boolean;
 	kycStatus: KycStatusEnum;
-	button: { color: string; text: string };
+	buttonStatus: { color: string; text: string };
 };
 
-type ButtonType = {
+type ButtonStatus = {
+	// TODO: refactor type
 	CONNECT_WALLET: { color: string; text: string };
 	CHANGE_NETWORK: { color: string; text: string };
 	PASS_KYC: { color: string; text: string };
 	CHECK_KYC: { color: string; text: string };
+	GET_NONCE: { color: string; text: string };
 };
 
-export const buttonInfo = {
+export const buttonText = {
 	CONNECT_WALLET: 'Connect Wallet',
 	CHANGE_NETWORK: 'Change Network',
 	PASS_KYC: 'Pass KYC',
 	CHECK_KYC: 'Check KYC',
+	GET_NONCE: 'Get Nonce',
 };
 
-export const button: ButtonType = {
-	CONNECT_WALLET: { color: 'blue', text: buttonInfo.CONNECT_WALLET },
-	CHANGE_NETWORK: { color: 'red', text: buttonInfo.CHANGE_NETWORK },
-	PASS_KYC: { color: 'orange', text: buttonInfo.PASS_KYC },
-	CHECK_KYC: { color: 'green', text: buttonInfo.CHECK_KYC },
+export const buttonType: ButtonStatus = {
+	CONNECT_WALLET: { color: 'blue', text: buttonText.CONNECT_WALLET },
+	CHANGE_NETWORK: { color: 'red', text: buttonText.CHANGE_NETWORK },
+	PASS_KYC: { color: 'orange', text: buttonText.PASS_KYC },
+	CHECK_KYC: { color: 'green', text: buttonText.CHECK_KYC },
+	GET_NONCE: { color: 'purple', text: buttonText.GET_NONCE },
 };
 
 const initialState: State = {
 	isUserVerified: false,
 	isAccountConnected: false,
 	isNetworkConnected: false,
-	kycStatus: KycStatusEnum.INITIAL,
-	button: button.CONNECT_WALLET,
+	kycStatus: KycStatusEnum.INITIAL, // TOOD: from localStorage?
+	buttonStatus: buttonType.CONNECT_WALLET,
 };
 
 type Dispatch = (action: Action) => void;
@@ -88,7 +94,7 @@ const authReducer = (state: State, action: Action): State => {
 		case KycEnum.STATUS:
 			return { ...state, kycStatus: action.payload };
 		case ButtonEnum.BUTTON:
-			return { ...state, button: action.payload };
+			return { ...state, buttonStatus: action.payload };
 		case VerificationEnum.USER:
 			return { ...state, isUserVerified: action.payload };
 		default:
@@ -99,34 +105,46 @@ const authReducer = (state: State, action: Action): State => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 	const [state, dispatch] = useReducer(authReducer, initialState);
 	const value = { state, dispatch };
-	const { isAccountConnected, isNetworkConnected, kycStatus, isUserVerified } = state;
+	const { isAccountConnected, isNetworkConnected, kycStatus } = state;
 
 	useEffect(() => {
-		if (kycStatus === KycStatusEnum.PASS && isNetworkConnected && isAccountConnected) {
-			dispatch({ type: VerificationEnum.USER, payload: true });
-		}
-		if (kycStatus !== KycStatusEnum.PASS || !isNetworkConnected || !isAccountConnected) {
-			dispatch({ type: VerificationEnum.USER, payload: false });
-		}
 		if (!isAccountConnected) {
 			dispatch({
 				type: ButtonEnum.BUTTON,
-				payload: button.CONNECT_WALLET,
+				payload: buttonType.CONNECT_WALLET,
 			});
 		}
+
 		if (!isNetworkConnected && isAccountConnected) {
 			dispatch({
 				type: ButtonEnum.BUTTON,
-				payload: button.CHANGE_NETWORK,
+				payload: buttonType.CHANGE_NETWORK,
 			});
 		}
-		if (kycStatus !== KycStatusEnum.PASS && isNetworkConnected && isAccountConnected) {
+
+		if (kycStatus === KycStatusEnum.INITIAL && isNetworkConnected && isAccountConnected) {
 			dispatch({
 				type: ButtonEnum.BUTTON,
-				payload: button.PASS_KYC,
+				payload: buttonType.PASS_KYC,
 			});
 		}
-	}, [isAccountConnected, isNetworkConnected, kycStatus, isUserVerified]);
+
+		if (
+			kycStatus === KycStatusEnum.REJECTED ||
+			kycStatus === KycStatusEnum.SKIP ||
+			kycStatus === KycStatusEnum.PROCESS ||
+			kycStatus === KycStatusEnum.REVIEW
+		) {
+			dispatch({
+				type: ButtonEnum.BUTTON,
+				payload: buttonType.CHECK_KYC,
+			});
+		}
+
+		if (kycStatus === KycStatusEnum.PASS && isNetworkConnected && isAccountConnected) {
+			dispatch({ type: VerificationEnum.USER, payload: true });
+		}
+	}, [isAccountConnected, isNetworkConnected, kycStatus]);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
@@ -134,7 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useStore = () => {
 	const context = useContext(AuthContext);
 	if (context === undefined) {
-		throw new Error('useAuth must be used within a AuthProvider');
+		throw new Error('useStore must be used within a AuthProvider');
 	}
 	return context;
 };

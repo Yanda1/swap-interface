@@ -48,7 +48,7 @@ export default function SwapForm() {
 	const swapButtonRef = useRef();
 	const [currentPrice, setCurrentPrice] = useState(0);
 	const { state } = useStore();
-	const { isUserVerified, button } = state;
+	const { isUserVerified, buttonStatus } = state;
 
 	useEffect(() => {
 		fetch(`https://www.binance.com/api/v3/ticker/price?symbol=${startCurrency}${destCurrency}`)
@@ -190,7 +190,7 @@ export default function SwapForm() {
 				/>
 			) : (
 				<Text fontSize='lg' fontWeight='bold' color='red.400' mt={5}>
-					{button.text}
+					{buttonStatus.text}
 				</Text>
 			)}
 		</form>

@@ -12,25 +12,21 @@ import {
 	Link,
 	useToast,
 } from '@chakra-ui/react';
-import axios from 'axios';
 import { useEthers, useEtherBalance, Moonbeam } from '@usedapp/core';
 import { formatEther } from '@ethersproject/units';
 import Identicon from './Identicon';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { ButtonEnum, button as buttonInfo, useStore, KycEnum } from '../helpers/context';
+import { ButtonEnum, buttonType, useStore, KycEnum } from '../helpers/context';
 import { VerificationEnum, KycStatusEnum } from '../helpers/context';
 import {
-	BINANCE_DEV_URL,
 	MOONBEAM_URL,
 	useLocalStorage,
 	useKyc,
 	loadBinanceKycScript,
-	BIZ_ENTRY_KEY,
+	makeBinanceKycCall,
 	LOCAL_STORAGE_KEY,
-	BASE_URL,
-	apiCall,
-	getMetamaskMessage,
+	getAuthTokensFromNonce,
 } from '../helpers/axios';
 
 type Props = {
@@ -47,11 +43,11 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 	const [kycScriptLoaded, setKycScriptLoaded] = useState(false);
 
 	const { kycStatus, kycToken } = useKyc(authToken);
-	const [storage, setStorage] = useLocalStorage(LOCAL_STORAGE_KEY, null);
+	const [storage, setStorage] = useLocalStorage(LOCAL_STORAGE_KEY, null); // TODO: check logic for default value
 	const { state, dispatch } = useStore();
-	const { isUserVerified, button } = state;
+	const { isUserVerified, isAccountConnected, isNetworkConnected, buttonStatus } = state;
 
-	const checkNetwork = async () => {
+	const checkNetwork = useCallback(async () => {
 		const network_params = [
 			{
 				chainId: ethers.utils.hexValue(Moonbeam.chainId),
@@ -67,18 +63,16 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 		];
 
 		if (!chainId) {
-			// check if this condition is redundant (in useEffect)
 			await switchNetwork(Moonbeam.chainId);
 			if (chainId !== Moonbeam.chainId) {
 				// @ts-ignore
 				await library.send('wallet_addEthereumChain', network_params);
 			}
 		}
-	};
+	}, [chainId]);
 
 	const handleButtonClick = async () => {
-		if (!account) {
-			// maybe if clause with state vars so it's not been called all the time on click
+		if (!isAccountConnected) {
 			try {
 				await activateBrowserWallet();
 			} catch (error) {
@@ -87,51 +81,31 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 			}
 		}
 
-		if (!chainId) {
-			// maybe if clause with state vars so it's not been called all the time on click
+		if (!isNetworkConnected) {
 			await checkNetwork();
 		}
 
-		if (account && chainId && kycScriptLoaded) {
-			axios
-				.request({
-					url: `${BASE_URL}${apiCall.getNonce}${account}`,
-				})
-				.then((res) => {
-					const msg = getMetamaskMessage(res.data.nonce);
-					library
-						?.send('personal_sign', [account, msg])
-						.then((res) => {
-							axios
-								.request({
-									url: `${BASE_URL}${apiCall.auth}`,
-									method: 'POST',
-									data: { address: account, signature: res },
-								})
-								.then((res) => {
-									console.log('%c account', 'color: red', account, storage, res.data);
-									//check if is_kyced already
-									setAuthToken(res.data.access);
-								}) // if is_kyced TRUE store in localStorage
-								.catch((err) => {
-									toast({
-										title: 'Something went wrong',
-										description: err.message,
-										status: 'error',
-										duration: 5000,
-										isClosable: true,
-									});
-								});
-						})
-						.catch((err) => {
-							toast({
-								title: 'Something went wrong',
-								description: err.message,
-								status: 'error',
-								duration: 5000,
-								isClosable: true,
-							});
-						});
+		if (!isNetworkConnected && !isAccountConnected) {
+			toast({
+				title: 'Something went wrong',
+				description:
+					'Please make sure that you are connected to the internet, signed in to your Metamask account and have the right network selected',
+				status: 'error',
+				duration: 5000,
+				isClosable: true,
+			});
+		}
+
+		if (isAccountConnected && isNetworkConnected) {
+			getAuthTokensFromNonce(account!, library)
+				.then((res: any) => {
+					setStorage({
+						account: account,
+						access: res.access,
+						refresh: res.refresh,
+						is_kyced: false,
+					}); // check with Daniel if this is the right place
+					setAuthToken(res.access);
 				})
 				.catch((err) => {
 					toast({
@@ -148,36 +122,31 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 	useEffect(() => {
 		loadBinanceKycScript(() => {
 			setKycScriptLoaded(true);
-		}); // error handling if script couldn't be loaded
+		});
 
-		// const handleCheckNetwork = async () => {
-		if (!chainId) {
-			checkNetwork();
-		}
-		// };
-		// handleCheckNetwork();
-
-		// if (data) {
-		// 	setAuthToken(data.access);
-		// }
-
-		if (chainId) {
-			dispatch({ type: VerificationEnum.NETWORK, payload: true });
-		} else dispatch({ type: VerificationEnum.NETWORK, payload: false });
 		if (account) {
 			dispatch({ type: VerificationEnum.ACCOUNT, payload: true });
 		} else {
 			dispatch({ type: VerificationEnum.ACCOUNT, payload: false });
 		}
+
+		if (chainId) {
+			dispatch({ type: VerificationEnum.NETWORK, payload: true });
+		} else {
+			dispatch({ type: VerificationEnum.NETWORK, payload: false });
+			checkNetwork();
+		}
+
 		if (account && chainId && storage) {
 			if (account !== storage.account) {
-				console.log('%c HERE !!!!!!!!!!!', 'font-size: 20px');
-				// make him sign nonce again to check stastus
-				dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.INITIAL });
+				dispatch({
+					type: ButtonEnum.BUTTON,
+					payload: buttonType.PASS_KYC,
+				});
 				toast({
 					title: 'Wrong account',
 					description:
-						'Please switch to the account that has already passed KYC or start the KYC proceess again',
+						'Please sign in with the account that has already passed KYC or start the KYC process again',
 					status: 'warning',
 					duration: 5000,
 					isClosable: true,
@@ -187,36 +156,53 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 					dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.PASS });
 				} else {
 					setAuthToken(storage.access);
-					// @ts-ignore
-					if (kycStatus?.levelInfo?.currentLevel?.kycStatus === 'PASS') {
-						// change to kycToken to get binance window
-						setStorage({ ...storage, is_kyced: true });
-						dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.PASS });
-					}
-					// @ts-ignore
-					if (kycStatus?.levelInfo?.currentLevel?.kycStatus === 'REVIEW') {
-						// change to kycToken to get binance window
-						dispatch({ type: ButtonEnum.BUTTON, payload: buttonInfo.CHECK_KYC });
+					if (kycToken && kycStatus) {
+						dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // check typing
+						setStorage({ ...storage, is_kyced: kycStatus === KycStatusEnum.PASS });
+					} else {
+						setAuthToken(storage.refresh);
+						if (kycToken && kycStatus) {
+							// TODO: why is kycStatus still '' and doesn't trigger a re-render?
+							dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // TODO: check typing
+						} else {
+							dispatch({
+								type: ButtonEnum.BUTTON,
+								payload: buttonType.GET_NONCE,
+							});
+							// getAuthTokensFromNonce(account!, library)
+							// 	.then((res: any) => {
+							// 		setStorage({
+							// 			account: account,
+							// 			access: res.access,
+							// 			refresh: res.refresh,
+							// 			is_kyced: false,
+							// 		}); // TOOD: check with Daniel if this is the right place
+							// 		setAuthToken(res.access);
+							// 	})
+							// 	.catch((err) => {
+							// 		toast({
+							// 			title: 'Something went wrong',
+							// 			description: err.message,
+							// 			status: 'error',
+							// 			duration: 5000,
+							// 			isClosable: true,
+							// 		});
+							// 	});
+						}
 					}
 				}
 			}
 		}
 
-		if (kycToken) {
-			// @ts-ignore
-			const binanceKyc = new BinanceKyc({
-				authToken: kycToken,
-				bizEntityKey: BIZ_ENTRY_KEY,
-				apiHost: BINANCE_DEV_URL,
-				onMessage: ({ typeCode }: any) => {
-					if (typeCode === '102') {
-						binanceKyc.switchVisible(true);
-					}
-				},
+		if (!storage) {
+			dispatch({
+				type: ButtonEnum.BUTTON,
+				payload: buttonType.PASS_KYC,
 			});
 		}
-		// eslint-disable-next-line
-	}, [chainId, account, authToken, kycStatus, isUserVerified]);
+
+		if (kycToken && kycScriptLoaded && !storage.is_kyced) makeBinanceKycCall(kycToken);
+	}, [chainId, account, authToken, kycToken, toast, kycStatus, dispatch, setStorage, checkNetwork]); // TODO: add storage dependency
 
 	return isUserVerified ? (
 		<Box display='flex' alignItems='center' background='gray.700' borderRadius='xl' py='0'>
@@ -285,26 +271,26 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 			<Button
 				id='kyc_button'
 				onClick={handleButtonClick}
-				bg={`${button.color}.800`}
-				color={`${button.color}.300`}
+				bg={`${buttonStatus.color}.800`}
+				color={`${buttonStatus.color}.300`}
 				fontSize='lg'
 				fontWeight='medium'
 				borderRadius='xl'
 				border='1px solid transparent'
 				_hover={{
-					borderColor: `${button.color}.700`,
-					color: `${button.color}.400`,
+					borderColor: `${buttonStatus.color}.700`,
+					color: `${buttonStatus.color}.400`,
 				}}
 				_active={{
-					backgroundColor: `${button.color}.800`,
-					borderColor: `${button.color}.700`,
+					backgroundColor: `${buttonStatus.color}.800`,
+					borderColor: `${buttonStatus.color}.700`,
 				}}
 				_focus={{
-					backgroundColor: `${button.color}.800`,
-					borderColor: `${button.color}.700`,
+					backgroundColor: `${buttonStatus.color}.800`,
+					borderColor: `${buttonStatus.color}.700`,
 				}}
 			>
-				{button.text}
+				{buttonStatus.text}
 			</Button>
 		</>
 	);

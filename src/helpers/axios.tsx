@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 
 export const BASE_URL = 'https://auth-app-aq3rv.ondigitalocean.app/';
@@ -63,7 +63,6 @@ export const makeBinanceKycCall = (authToken: string) => {
 			}
 		},
 		// closeCallback: () => {
-		// 	console.log('%c in Binanace call', 'color: red; font-size: 20px');
 		// 	axios
 		// 		.request({
 		// 			url: `${BASE_URL}${apiCall.kycStatus}`,
@@ -107,67 +106,83 @@ export const useLocalStorage = (key: string, defaultValue: LocalStorageProps) =>
 	return [value, setValue];
 };
 
-export const getAuthTokensFromNonce = (account: string, library: any) => {
-	return new Promise((resolve, reject) => {
-		axios
-			.request({
-				url: `${BASE_URL}${apiCall.getNonce}${account}`,
-			})
-			.then((res) => {
-				const msg = getMetamaskMessage(res.data.nonce);
-
-				library
-					?.send('personal_sign', [account, msg])
-					.then((res: any) => {
-						axios
-							.request({
-								url: `${BASE_URL}${apiCall.auth}`,
-								method: 'POST',
-								data: { address: account, signature: res },
-							})
-							.then((res) => resolve(res.data)) // if is_kyced TRUE store in localStorage
-							.catch((err) => reject(err));
-						// .finally(() => setLoading(false));
-					})
-					.catch((err: any) => reject(err));
-				// .finally(() => setLoading(false));
-			})
-			.catch((err) => reject(err));
-		// .finally(() => setLoading(false));
-	});
+export const getAuthTokensFromNonce = async (account: string, library: any) => {
+	try {
+		const res = await axios.request({
+			url: `${BASE_URL}${apiCall.getNonce}${account}`,
+		});
+		try {
+			const msg = await getMetamaskMessage(res.data.nonce);
+			const signature = await library?.send('personal_sign', [account, msg]);
+			try {
+				const tokenRes = await axios.request({
+					url: `${BASE_URL}${apiCall.auth}`,
+					method: 'POST',
+					data: { address: account, signature },
+				});
+				return tokenRes.data; // TODO: if is_kyced TRUE store in localStorage
+			} catch (err: any) {
+				throw new Error(err);
+			}
+		} catch (err: any) {
+			throw new Error(err);
+		}
+	} catch (err: any) {
+		throw new Error(err);
+	}
 };
 
 export const useKyc = (
 	authToken: string,
 ): { loading: boolean; error: any; kycStatus: string; kycToken: string } => {
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState(null);
 	const [kycStatus, setKycStatus] = useState('');
 	const [kycToken, setKycToken] = useState('');
 
-	useEffect(() => {
-		axios
-			.request({
-				url: `${BASE_URL}${apiCall.kycStatus}`,
-				headers: {
-					Authorization: `Bearer ${authToken}`,
-				},
-			})
-			.then((res) => setKycStatus(res.data.levelInfo.currentLevel.kycStatus)) // TODO: check typing and if kycStatus is from right place
-			.catch((err) => setError(err))
-			.finally(() => setLoading(false));
+	const fetchData = useCallback(
+		async (authToken) => {
+			try {
+				setLoading(true);
+				const statusRes = await axios.request({
+					// TODO: check typing and if kycStatus is from right place
+					url: `${BASE_URL}${apiCall.kycStatus}`,
+					headers: {
+						Authorization: `Bearer ${authToken}`,
+					},
+				});
+				setKycStatus(statusRes.data.statusInfo.kycStatus);
+			} catch (err: any) {
+				setError(err);
+			} finally {
+				setLoading(false);
+			}
 
-		axios
-			.request({
-				url: `${BASE_URL}${apiCall.kycToken}`,
-				headers: {
-					Authorization: `Bearer ${authToken}`,
-				},
-			})
-			.then((res) => setKycToken(res.data.token))
-			.catch((err) => setError(err))
-			.finally(() => setLoading(false));
-	}, [authToken]);
+			try {
+				setLoading(true);
+				const tokenRes = await axios.request({
+					url: `${BASE_URL}${apiCall.kycToken}`,
+					headers: {
+						Authorization: `Bearer ${authToken}`,
+					},
+				});
+				setKycToken(tokenRes.data.token);
+			} catch (err: any) {
+				setError(err);
+			} finally {
+				setLoading(false);
+			}
+			console.log('kycToken', kycToken);
+			console.log('kycToken', kycStatus);
+		},
+		// eslint-disable-next-line
+		[authToken],
+	);
+
+	useEffect(() => {
+		fetchData(authToken);
+		// eslint-disable-next-line
+	}, [fetchData]);
 
 	return { loading, error, kycStatus, kycToken };
 };

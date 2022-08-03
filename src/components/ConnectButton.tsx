@@ -69,6 +69,7 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 				await library.send('wallet_addEthereumChain', network_params);
 			}
 		}
+		// eslint-disable-next-line
 	}, [chainId]);
 
 	const handleButtonClick = async () => {
@@ -99,6 +100,7 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 		if (isAccountConnected && isNetworkConnected) {
 			getAuthTokensFromNonce(account!, library)
 				.then((res: any) => {
+					console.log('res', res);
 					setStorage({
 						account: account,
 						access: res.access,
@@ -120,10 +122,6 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 	};
 
 	useEffect(() => {
-		loadBinanceKycScript(() => {
-			setKycScriptLoaded(true);
-		});
-
 		if (account) {
 			dispatch({ type: VerificationEnum.ACCOUNT, payload: true });
 		} else {
@@ -136,73 +134,97 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 			dispatch({ type: VerificationEnum.NETWORK, payload: false });
 			checkNetwork();
 		}
+	}, [account, chainId, checkNetwork, dispatch]);
 
-		if (account && chainId && storage) {
-			if (account !== storage.account) {
-				dispatch({
-					type: ButtonEnum.BUTTON,
-					payload: buttonType.PASS_KYC,
-				});
-				toast({
-					title: 'Wrong account',
-					description:
-						'Please sign in with the account that has already passed KYC or start the KYC process again',
-					status: 'warning',
-					duration: 5000,
-					isClosable: true,
-				});
-			} else {
-				if (storage['is_kyced']) {
-					dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.PASS });
+	useEffect(() => {
+		loadBinanceKycScript(() => {
+			setKycScriptLoaded(true);
+		});
+
+		// if (kycToken && kycScriptLoaded && !storage.is_kyced) makeBinanceKycCall(kycToken);
+	}, [kycScriptLoaded, kycToken, storage.is_kyced]);
+
+	useEffect(
+		() => {
+			if (account && chainId && storage) {
+				if (account !== storage.account) {
+					dispatch({
+						type: ButtonEnum.BUTTON,
+						payload: buttonType.PASS_KYC,
+					});
+					toast({
+						title: 'Wrong account',
+						description:
+							'Please sign in with the account that has already passed KYC or start the KYC process again',
+						status: 'warning',
+						duration: 5000,
+						isClosable: true,
+					});
 				} else {
-					setAuthToken(storage.access);
-					if (kycToken && kycStatus) {
-						dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // check typing
-						setStorage({ ...storage, is_kyced: kycStatus === KycStatusEnum.PASS });
+					if (storage.is_kyced) {
+						dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.PASS });
 					} else {
-						setAuthToken(storage.refresh);
+						setAuthToken(storage.access);
 						if (kycToken && kycStatus) {
-							// TODO: why is kycStatus still '' and doesn't trigger a re-render?
-							dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // TODO: check typing
+							dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // check typing
+							setStorage({ ...storage, is_kyced: kycStatus === KycStatusEnum.PASS });
 						} else {
-							dispatch({
-								type: ButtonEnum.BUTTON,
-								payload: buttonType.GET_NONCE,
-							});
-							// getAuthTokensFromNonce(account!, library)
-							// 	.then((res: any) => {
-							// 		setStorage({
-							// 			account: account,
-							// 			access: res.access,
-							// 			refresh: res.refresh,
-							// 			is_kyced: false,
-							// 		}); // TOOD: check with Daniel if this is the right place
-							// 		setAuthToken(res.access);
-							// 	})
-							// 	.catch((err) => {
-							// 		toast({
-							// 			title: 'Something went wrong',
-							// 			description: err.message,
-							// 			status: 'error',
-							// 			duration: 5000,
-							// 			isClosable: true,
-							// 		});
-							// 	});
+							setAuthToken(storage.refresh);
+							if (kycToken && kycStatus) {
+								// TODO: why is kycStatus still '' and doesn't trigger a re-render?
+								dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // TODO: check typing
+							} else {
+								dispatch({
+									type: ButtonEnum.BUTTON,
+									payload: buttonType.GET_NONCE,
+								});
+								// getAuthTokensFromNonce(account!, library)
+								// 	.then((res: any) => {
+								// 		setStorage({
+								// 			account: account,
+								// 			access: res.access,
+								// 			refresh: res.refresh,
+								// 			is_kyced: false,
+								// 		}); // TOOD: check with Daniel if this is the right place
+								// 		setAuthToken(res.access);
+								// 	})
+								// 	.catch((err) => {
+								// 		toast({
+								// 			title: 'Something went wrong',
+								// 			description: err.message,
+								// 			status: 'error',
+								// 			duration: 5000,
+								// 			isClosable: true,
+								// 		});
+								// 	});
+							}
 						}
 					}
 				}
 			}
-		}
 
-		if (!storage) {
-			dispatch({
-				type: ButtonEnum.BUTTON,
-				payload: buttonType.PASS_KYC,
-			});
-		}
-
-		if (kycToken && kycScriptLoaded && !storage.is_kyced) makeBinanceKycCall(kycToken);
-	}, [chainId, account, authToken, kycToken, toast, kycStatus, dispatch, setStorage, checkNetwork]); // TODO: add storage dependency
+			if (!storage) {
+				dispatch({
+					type: ButtonEnum.BUTTON,
+					payload: buttonType.PASS_KYC,
+				});
+			}
+		},
+		// eslint-disable-next-line
+		[
+			account,
+			chainId,
+			storage.access,
+			storage.refresh,
+			storage.is_kyced,
+			dispatch,
+			buttonStatus,
+			authToken,
+			kycStatus,
+			kycToken,
+			setStorage,
+		],
+	); // toast, storage?
 
 	return isUserVerified ? (
 		<Box display='flex' alignItems='center' background='gray.700' borderRadius='xl' py='0'>

@@ -16,7 +16,7 @@ export enum KycStatusEnum {
 	REVIEW = 'REVIEW',
 	PROCESS = 'PROCESS',
 	PASS = 'PASS',
-	REJECTED = 'REJECTED',
+	REJECT = 'REJECT',
 }
 
 export enum ButtonEnum {
@@ -122,7 +122,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 			});
 		}
 
-		if (kycStatus === KycStatusEnum.INITIAL && isNetworkConnected && isAccountConnected) {
+		if (
+			(kycStatus === KycStatusEnum.REJECT || kycStatus === KycStatusEnum.INITIAL) &&
+			isNetworkConnected &&
+			isAccountConnected
+		) {
 			dispatch({
 				type: ButtonEnum.BUTTON,
 				payload: buttonType.PASS_KYC,
@@ -130,8 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 		}
 
 		if (
-			kycStatus === KycStatusEnum.REJECTED ||
-			kycStatus === KycStatusEnum.SKIP ||
+			kycStatus === KycStatusEnum.SKIP || // TODO: what is skip used for / does it exist?
 			kycStatus === KycStatusEnum.PROCESS ||
 			kycStatus === KycStatusEnum.REVIEW
 		) {

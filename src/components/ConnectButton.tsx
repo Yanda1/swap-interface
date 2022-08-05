@@ -38,6 +38,7 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 	const etherBalance = useEtherBalance(account);
 
 	const [authToken, setAuthToken] = useState('');
+	const [fireBinanceCall, setFireBinanceCall] = useState(false);
 	const toast = useToast();
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const [kycScriptLoaded, setKycScriptLoaded] = useState(false);
@@ -46,6 +47,7 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 	const [storage, setStorage] = useLocalStorage(LOCAL_STORAGE_KEY, null); // TODO: check logic for default value
 	const { state, dispatch } = useStore();
 	const { isUserVerified, isAccountConnected, isNetworkConnected, buttonStatus } = state;
+	const shouldMakeBinanceCall = kycToken && kycScriptLoaded && !storage.is_kyced && fireBinanceCall;
 
 	const checkNetwork = useCallback(async () => {
 		const network_params = [
@@ -86,38 +88,27 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 			await checkNetwork();
 		}
 
-		if (!isNetworkConnected && !isAccountConnected) {
-			toast({
-				title: 'Something went wrong',
-				description:
-					'Please make sure that you are connected to the internet, signed in to your Metamask account and have the right network selected',
-				status: 'error',
-				duration: 5000,
-				isClosable: true,
-			});
-		}
-
 		if (isAccountConnected && isNetworkConnected) {
-			getAuthTokensFromNonce(account!, library)
-				.then((res: any) => {
-					console.log('res', res);
-					setStorage({
-						account: account,
-						access: res.access,
-						refresh: res.refresh,
-						is_kyced: false,
-					}); // check with Daniel if this is the right place
-					setAuthToken(res.access);
-				})
-				.catch((err) => {
-					toast({
-						title: 'Something went wrong',
-						description: err.message,
-						status: 'error',
-						duration: 5000,
-						isClosable: true,
-					});
+			try {
+				const res = await getAuthTokensFromNonce(account!, library);
+				setStorage({
+					account: account,
+					access: res.access,
+					refresh: res.refresh,
+					is_kyced: false,
+				}); // check with Daniel if this is the right place
+				setAuthToken(res.access);
+				console.log('%c authToken two', 'font-size: 20px', authToken);
+				setFireBinanceCall(true);
+			} catch (err: any) {
+				toast({
+					title: 'Something went wrong',
+					description: err.message,
+					status: 'error',
+					duration: 5000,
+					isClosable: true,
 				});
+			}
 		}
 	};
 
@@ -137,21 +128,34 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 	}, [account, chainId, checkNetwork, dispatch]);
 
 	useEffect(() => {
+		console.log('%c in second useEffect', 'color: yellow; font-size: 20px;');
 		loadBinanceKycScript(() => {
 			setKycScriptLoaded(true);
 		});
 
-		// if (kycToken && kycScriptLoaded && !storage.is_kyced) makeBinanceKycCall(kycToken);
-	}, [kycScriptLoaded, kycToken, storage.is_kyced]);
+		if (shouldMakeBinanceCall) makeBinanceKycCall(kycToken);
+		// eslint-disable-next-line
+	}, [shouldMakeBinanceCall]);
 
 	useEffect(
 		() => {
+			console.log('%c in third useEffect', 'color: #ff0000; font-size: 20px;');
+
+			if (account && chainId && !storage) {
+				dispatch({
+					type: ButtonEnum.BUTTON,
+					payload: buttonType.PASS_KYC,
+				});
+			}
+
 			if (account && chainId && storage) {
 				if (account !== storage.account) {
 					dispatch({
 						type: ButtonEnum.BUTTON,
 						payload: buttonType.PASS_KYC,
 					});
+					dispatch({ type: VerificationEnum.USER, payload: false });
+					setFireBinanceCall(false);
 					toast({
 						title: 'Wrong account',
 						description:
@@ -164,12 +168,16 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 					if (storage.is_kyced) {
 						dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.PASS });
 					} else {
+						console.log('kycToken / -Status', kycToken, kycStatus);
+
 						setAuthToken(storage.access);
+						console.log('%c authToken two', 'font-size: 16px', authToken);
 						if (kycToken && kycStatus) {
 							dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // check typing
 							setStorage({ ...storage, is_kyced: kycStatus === KycStatusEnum.PASS });
 						} else {
 							setAuthToken(storage.refresh);
+							console.log('%c authToken two', 'font-size: 18px', authToken);
 							if (kycToken && kycStatus) {
 								// TODO: why is kycStatus still '' and doesn't trigger a re-render?
 								dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // TODO: check typing
@@ -202,18 +210,9 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 					}
 				}
 			}
-
-			if (!storage) {
-				dispatch({
-					type: ButtonEnum.BUTTON,
-					payload: buttonType.PASS_KYC,
-				});
-			}
 		},
 		// eslint-disable-next-line
 		[
-			account,
-			chainId,
 			storage.access,
 			storage.refresh,
 			storage.is_kyced,

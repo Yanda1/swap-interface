@@ -52,6 +52,7 @@ export const loadBinanceKycScript = (cb?: any) => {
 };
 
 export const makeBinanceKycCall = (authToken: string) => {
+	console.log('authToken in binanace', authToken);
 	// @ts-ignore
 	const binanceKyc = new BinanceKyc({
 		authToken,
@@ -62,28 +63,28 @@ export const makeBinanceKycCall = (authToken: string) => {
 				binanceKyc.switchVisible(true);
 			}
 		},
-		// closeCallback: () => {
-		// 	axios
-		// 		.request({
-		// 			url: `${BASE_URL}${apiCall.kycStatus}`,
-		// 			headers: {
-		// 				Authorization: `Bearer ${authToken}`,
-		// 			},
-		// 		})
-		// 		.then((res: any) => {
-		// 			const { dispatch } = useStore();
-		// 			console.log('res.data.levelInfo.currentLevel', res.data.levelInfo.currentLevel);
-		// 			if (res.data.levelInfo.currentLevel.kycStatus === 'PASS') {
-		// 				dispatch({ type: VerificationEnum.USER, payload: true });
-		// 			} else {
-		// 				dispatch({ type: KycEnum.STATUS, payload: res.data.levelInfo.currentLevel.kycStatus }); // payload: KycStastusEnum[res.data.levelInfo.currentLevel.kycStatus]
-		// 				dispatch({ type: ButtonEnum.BUTTON, payload: button.CHECK_KYC });
-		// 			}
-		// 		})
-		// 		.catch((err) => {
-		// 			throw new Error(err);
-		// 		});
-		// },
+		closeCallback: () => {
+			// 	axios
+			// 		.request({
+			// 			url: `${BASE_URL}${apiCall.kycStatus}`,
+			// 			headers: {
+			// 				Authorization: `Bearer ${authToken}`,
+			// 			},
+			// 		})
+			// 		.then((res: any) => {
+			// 			const { dispatch } = useStore();
+			// 			console.log('res.data.levelInfo.currentLevel', res.data.levelInfo.currentLevel);
+			// 			if (res.data.levelInfo.currentLevel.kycStatus === 'PASS') {
+			// 				dispatch({ type: VerificationEnum.USER, payload: true });
+			// 			} else {
+			// 				dispatch({ type: KycEnum.STATUS, payload: res.data.levelInfo.currentLevel.kycStatus }); // payload: KycStastusEnum[res.data.levelInfo.currentLevel.kycStatus]
+			// 				dispatch({ type: ButtonEnum.BUTTON, payload: button.CHECK_KYC });
+			// 			}
+			// 		})
+			// 		.catch((err) => {
+			// 			throw new Error(err);
+			// 		});
+		},
 	});
 };
 
@@ -172,8 +173,6 @@ export const useKyc = (
 			} finally {
 				setLoading(false);
 			}
-			console.log('kycToken', kycToken);
-			console.log('kycToken', kycStatus);
 		},
 		// eslint-disable-next-line
 		[authToken],

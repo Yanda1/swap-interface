@@ -213,9 +213,9 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 		},
 		// eslint-disable-next-line
 		[
-			storage.access,
-			storage.refresh,
-			storage.is_kyced,
+			storage?.access,
+			storage?.refresh,
+			storage?.is_kyced,
 			dispatch,
 			buttonStatus,
 			authToken,

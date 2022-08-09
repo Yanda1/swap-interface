@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 export const BASE_URL = 'https://auth-app-aq3rv.ondigitalocean.app/';
@@ -9,12 +9,6 @@ export const BINANCE_SCRIPT =
 export const MOONBEAM_URL = 'https://rpc.api.moonbeam.network';
 export const BIZ_ENTRY_KEY = 'YANDA';
 export const LOCAL_STORAGE_KEY = 'tiwanaku';
-
-export enum STATUS_ENUM {
-	NONCE = 'NONCE',
-	AUTH = 'AUTH',
-	PASS = 'PASS',
-}
 
 type LocalStorageProps = {
 	is_kyc: string;
@@ -52,7 +46,6 @@ export const loadBinanceKycScript = (cb?: any) => {
 };
 
 export const makeBinanceKycCall = (authToken: string) => {
-	console.log('authToken in binanace', authToken);
 	// @ts-ignore
 	const binanceKyc = new BinanceKyc({
 		authToken,
@@ -62,28 +55,6 @@ export const makeBinanceKycCall = (authToken: string) => {
 			if (typeCode === '102') {
 				binanceKyc.switchVisible(true);
 			}
-		},
-		closeCallback: () => {
-			// 	axios
-			// 		.request({
-			// 			url: `${BASE_URL}${apiCall.kycStatus}`,
-			// 			headers: {
-			// 				Authorization: `Bearer ${authToken}`,
-			// 			},
-			// 		})
-			// 		.then((res: any) => {
-			// 			const { dispatch } = useStore();
-			// 			console.log('res.data.levelInfo.currentLevel', res.data.levelInfo.currentLevel);
-			// 			if (res.data.levelInfo.currentLevel.kycStatus === 'PASS') {
-			// 				dispatch({ type: VerificationEnum.USER, payload: true });
-			// 			} else {
-			// 				dispatch({ type: KycEnum.STATUS, payload: res.data.levelInfo.currentLevel.kycStatus }); // payload: KycStastusEnum[res.data.levelInfo.currentLevel.kycStatus]
-			// 				dispatch({ type: ButtonEnum.BUTTON, payload: button.CHECK_KYC });
-			// 			}
-			// 		})
-			// 		.catch((err) => {
-			// 			throw new Error(err);
-			// 		});
 		},
 	});
 };
@@ -131,57 +102,4 @@ export const getAuthTokensFromNonce = async (account: string, library: any) => {
 	} catch (err: any) {
 		throw new Error(err);
 	}
-};
-
-export const useKyc = (
-	authToken: string,
-): { loading: boolean; error: any; kycStatus: string; kycToken: string } => {
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState(null);
-	const [kycStatus, setKycStatus] = useState('');
-	const [kycToken, setKycToken] = useState('');
-
-	const fetchData = useCallback(
-		async (authToken) => {
-			try {
-				setLoading(true);
-				const statusRes = await axios.request({
-					// TODO: check typing and if kycStatus is from right place
-					url: `${BASE_URL}${apiCall.kycStatus}`,
-					headers: {
-						Authorization: `Bearer ${authToken}`,
-					},
-				});
-				setKycStatus(statusRes.data.statusInfo.kycStatus);
-			} catch (err: any) {
-				setError(err);
-			} finally {
-				setLoading(false);
-			}
-
-			try {
-				setLoading(true);
-				const tokenRes = await axios.request({
-					url: `${BASE_URL}${apiCall.kycToken}`,
-					headers: {
-						Authorization: `Bearer ${authToken}`,
-					},
-				});
-				setKycToken(tokenRes.data.token);
-			} catch (err: any) {
-				setError(err);
-			} finally {
-				setLoading(false);
-			}
-		},
-		// eslint-disable-next-line
-		[authToken],
-	);
-
-	useEffect(() => {
-		fetchData(authToken);
-		// eslint-disable-next-line
-	}, [fetchData]);
-
-	return { loading, error, kycStatus, kycToken };
 };

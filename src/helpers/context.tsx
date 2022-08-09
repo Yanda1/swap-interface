@@ -105,7 +105,7 @@ const authReducer = (state: State, action: Action): State => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 	const [state, dispatch] = useReducer(authReducer, initialState);
 	const value = { state, dispatch };
-	const { isAccountConnected, isNetworkConnected, kycStatus } = state;
+	const { isAccountConnected, isNetworkConnected, kycStatus, buttonStatus } = state;
 
 	useEffect(() => {
 		if (!isAccountConnected) {
@@ -127,6 +127,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 			isNetworkConnected &&
 			isAccountConnected
 		) {
+		console.log("DO WE GET HERE???", buttonStatus)
 			dispatch({
 				type: ButtonEnum.BUTTON,
 				payload: buttonType.PASS_KYC,
@@ -147,7 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 		if (kycStatus === KycStatusEnum.PASS && isNetworkConnected && isAccountConnected) {
 			dispatch({ type: VerificationEnum.USER, payload: true });
 		}
-	}, [isAccountConnected, isNetworkConnected, kycStatus]);
+	}, [isAccountConnected, isNetworkConnected, kycStatus, buttonStatus]);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

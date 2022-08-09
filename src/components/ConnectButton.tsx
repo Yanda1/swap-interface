@@ -1,33 +1,34 @@
 import {
-	Button,
 	Box,
-	Text,
+	Button,
+	Link,
 	Modal,
-	ModalOverlay,
-	ModalContent,
-	ModalHeader,
 	ModalBody,
 	ModalCloseButton,
+	ModalContent,
+	ModalHeader,
+	ModalOverlay,
+	Text,
 	useDisclosure,
-	Link,
 	useToast,
 } from '@chakra-ui/react';
-import { useEthers, useEtherBalance, Moonbeam } from '@usedapp/core';
+import { Moonbeam, useEtherBalance, useEthers } from '@usedapp/core';
 import { formatEther } from '@ethersproject/units';
 import Identicon from './Identicon';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { ButtonEnum, buttonType, useStore, KycEnum } from '../helpers/context';
-import { VerificationEnum, KycStatusEnum } from '../helpers/context';
+import { ButtonEnum, buttonType, KycEnum, KycStatusEnum, useStore, VerificationEnum } from '../helpers/context';
 import {
-	MOONBEAM_URL,
-	useLocalStorage,
-	useKyc,
-	loadBinanceKycScript,
-	makeBinanceKycCall,
-	LOCAL_STORAGE_KEY,
+	apiCall,
+	BASE_URL,
 	getAuthTokensFromNonce,
+	loadBinanceKycScript,
+	LOCAL_STORAGE_KEY,
+	makeBinanceKycCall,
+	MOONBEAM_URL,
+	useLocalStorage
 } from '../helpers/axios';
+import axios from "axios";
 
 type Props = {
 	handleOpenModal: any;
@@ -37,19 +38,15 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 	const { activateBrowserWallet, library, account, chainId, switchNetwork } = useEthers();
 	const etherBalance = useEtherBalance(account);
 
-	const [authToken, setAuthToken] = useState('');
-	const [fireBinanceCall, setFireBinanceCall] = useState(false);
 	const toast = useToast();
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const [kycScriptLoaded, setKycScriptLoaded] = useState(false);
 
-	const { kycStatus, kycToken } = useKyc(authToken);
 	const [storage, setStorage] = useLocalStorage(LOCAL_STORAGE_KEY, null); // TODO: check logic for default value
 	const { state, dispatch } = useStore();
-	const { isUserVerified, isAccountConnected, isNetworkConnected, buttonStatus } = state;
-	const shouldMakeBinanceCall = kycToken && kycScriptLoaded && !storage.is_kyced && fireBinanceCall;
+	const { isUserVerified, isAccountConnected, isNetworkConnected, buttonStatus, kycStatus } = state;
 
-	const checkNetwork = useCallback(async () => {
+	const checkNetwork = async () => {
 		const network_params = [
 			{
 				chainId: ethers.utils.hexValue(Moonbeam.chainId),
@@ -71,8 +68,7 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 				await library.send('wallet_addEthereumChain', network_params);
 			}
 		}
-		// eslint-disable-next-line
-	}, [chainId]);
+	};
 
 	const handleButtonClick = async () => {
 		if (!isAccountConnected) {
@@ -95,11 +91,25 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 					account: account,
 					access: res.access,
 					refresh: res.refresh,
-					is_kyced: false,
+					is_kyced: res.is_kyced,
 				}); // check with Daniel if this is the right place
-				setAuthToken(res.access);
-				console.log('%c authToken two', 'font-size: 20px', authToken);
-				setFireBinanceCall(true);
+				try {
+          const tokenRes: { data: { token: string; }} = await axios.request({
+            url: `${BASE_URL}${apiCall.kycToken}`,
+            headers: {
+              Authorization: `Bearer ${res.access}`,
+            },
+          });
+          makeBinanceKycCall(tokenRes.data.token)
+        } catch (err: any) {
+          toast({
+            title: 'We are sorry, something went wrong',
+            description: err.message,
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          });
+        }
 			} catch (err: any) {
 				toast({
 					title: 'Something went wrong',
@@ -125,22 +135,18 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 			dispatch({ type: VerificationEnum.NETWORK, payload: false });
 			checkNetwork();
 		}
-	}, [account, chainId, checkNetwork, dispatch]);
+	}, [account, chainId, dispatch]);
 
 	useEffect(() => {
-		console.log('%c in second useEffect', 'color: yellow; font-size: 20px;');
 		loadBinanceKycScript(() => {
 			setKycScriptLoaded(true);
 		});
+		// if (shouldMakeBinanceCall) makeBinanceKycCall(kycToken);
+	}, []);
+	console.log("IS USER VERIFIED ", isUserVerified)
 
-		if (shouldMakeBinanceCall) makeBinanceKycCall(kycToken);
-		// eslint-disable-next-line
-	}, [shouldMakeBinanceCall]);
-
-	useEffect(
-		() => {
-			console.log('%c in third useEffect', 'color: #ff0000; font-size: 20px;');
-
+	useEffect(() => {
+		const getUserStatus = async (): Promise<void> => {
 			if (account && chainId && !storage) {
 				dispatch({
 					type: ButtonEnum.BUTTON,
@@ -155,7 +161,7 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 						payload: buttonType.PASS_KYC,
 					});
 					dispatch({ type: VerificationEnum.USER, payload: false });
-					setFireBinanceCall(false);
+					console.log(storage.account, account, isUserVerified)
 					toast({
 						title: 'Wrong account',
 						description:
@@ -168,62 +174,74 @@ const ConnectButton = ({ handleOpenModal }: Props) => {
 					if (storage.is_kyced) {
 						dispatch({ type: KycEnum.STATUS, payload: KycStatusEnum.PASS });
 					} else {
-						console.log('kycToken / -Status', kycToken, kycStatus);
+						try {
+							const tokenRes: any = await axios.request({
+								url: `${BASE_URL}${apiCall.kycToken}`,
+								headers: {
+									Authorization: `Bearer ${storage.access}`,
+								},
+							});
+							const statusRes: any = await axios.request({
+								url: `${BASE_URL}${apiCall.kycStatus}`,
+								headers: {
+									Authorization: `Bearer ${storage.access}`,
+								},
+							});
+							if (tokenRes.status === 200 && statusRes.status === 200) {
+								console.log("HERE ??? ", tokenRes.data.token)
 
-						setAuthToken(storage.access);
-						console.log('%c authToken two', 'font-size: 16px', authToken);
-						if (kycToken && kycStatus) {
-							dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // check typing
-							setStorage({ ...storage, is_kyced: kycStatus === KycStatusEnum.PASS });
-						} else {
-							setAuthToken(storage.refresh);
-							console.log('%c authToken two', 'font-size: 18px', authToken);
-							if (kycToken && kycStatus) {
-								// TODO: why is kycStatus still '' and doesn't trigger a re-render?
-								dispatch({ type: KycEnum.STATUS, payload: kycStatus as any }); // TODO: check typing
+								makeBinanceKycCall(tokenRes.data.token)
+								dispatch({ type: KycEnum.STATUS, payload: statusRes.data.statusInfo.kycStatus }); // check typing
+								setStorage({ ...storage, is_kyced: statusRes.data.statusInfo.kycStatus === KycStatusEnum.PASS });
 							} else {
-								dispatch({
-									type: ButtonEnum.BUTTON,
-									payload: buttonType.GET_NONCE,
-								});
-								// getAuthTokensFromNonce(account!, library)
-								// 	.then((res: any) => {
-								// 		setStorage({
-								// 			account: account,
-								// 			access: res.access,
-								// 			refresh: res.refresh,
-								// 			is_kyced: false,
-								// 		}); // TOOD: check with Daniel if this is the right place
-								// 		setAuthToken(res.access);
-								// 	})
-								// 	.catch((err) => {
-								// 		toast({
-								// 			title: 'Something went wrong',
-								// 			description: err.message,
-								// 			status: 'error',
-								// 			duration: 5000,
-								// 			isClosable: true,
-								// 		});
-								// 	});
+								try {
+									const tokenRes: any = await axios.request({
+										url: `${BASE_URL}${apiCall.kycToken}`,
+										headers: {
+											Authorization: `Bearer ${storage.refresh}`,
+										},
+									});
+									const statusRes: any = await axios.request({
+										url: `${BASE_URL}${apiCall.kycStatus}`,
+										headers: {
+											Authorization: `Bearer ${storage.refresh}`,
+										},
+									});
+									if (tokenRes.status === 200 && statusRes.status === 200) {
+										makeBinanceKycCall(tokenRes.data.token)
+										dispatch({ type: KycEnum.STATUS, payload: statusRes.data.statusInfo.kycStatus }); // check typing
+										setStorage({ ...storage, is_kyced: statusRes.data.statusInfo.kycStatus === KycStatusEnum.PASS });
+									} else {
+										dispatch({
+											type: ButtonEnum.BUTTON,
+											payload: buttonType.GET_NONCE,
+										});
+									}
+								} catch (err: any) {
+									toast({
+										title: 'We are sorry, something went wrong',
+										description: err.message,
+										status: 'error',
+										duration: 5000,
+										isClosable: true,
+									});
+								}
 							}
+						} catch (err: any) {
+							toast({
+								title: 'We are sorry, something went wrong',
+								description: err.message,
+								status: 'error',
+								duration: 5000,
+								isClosable: true,
+							});
 						}
 					}
 				}
 			}
-		},
-		// eslint-disable-next-line
-		[
-			storage?.access,
-			storage?.refresh,
-			storage?.is_kyced,
-			dispatch,
-			buttonStatus,
-			authToken,
-			kycStatus,
-			kycToken,
-			setStorage,
-		],
-	); // toast, storage?
+		}
+		getUserStatus();
+	}, [account, buttonStatus, kycStatus, isUserVerified]); // toast, storage?
 
 	return isUserVerified ? (
 		<Box display='flex' alignItems='center' background='gray.700' borderRadius='xl' py='0'>
